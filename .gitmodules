@@ -1,0 +1,6 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/ruzer/erp-gob-abastecimiento.git
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/ruzer/erp-gob-frontend.git

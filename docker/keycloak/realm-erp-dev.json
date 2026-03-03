@@ -1,0 +1,121 @@
+{
+  "realm": "erp",
+  "enabled": true,
+  "displayName": "ERP Dev Realm",
+  "sslRequired": "none",
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 43200,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "rememberMe": true,
+  "roles": {
+    "realm": [
+      { "name": "ADMIN" },
+      { "name": "ROLE_COMPRAS" },
+      { "name": "ROLE_ALMACEN" },
+      { "name": "OIC.READONLY" },
+      { "name": "OPS.CONSULTAR" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "erp-api",
+      "name": "ERP API",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "change_me",
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "access.token.lifespan": "600"
+      }
+    },
+    {
+      "clientId": "erp-backend",
+      "name": "ERP Backend",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "change_me",
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "access.token.lifespan": "600"
+      }
+    },
+    {
+      "clientId": "erp-frontend",
+      "name": "ERP Frontend",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "serviceAccountsEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["http://localhost:13001/*"],
+      "webOrigins": ["http://localhost:13001"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:13001/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-erp-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "erp-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-account",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "account",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "frontend.tester",
+      "enabled": true,
+      "email": "frontend.tester@test.gob",
+      "emailVerified": true,
+      "firstName": "Frontend",
+      "lastName": "Tester",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Frontend123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ADMIN", "OPS.CONSULTAR"]
+    }
+  ]
+}
