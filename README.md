@@ -14,7 +14,16 @@ Suite fullstack reproducible del ERP (backend + frontend + infraestructura) para
 - `docker/keycloak/realm-erp-dev.json` realm de desarrollo
 - `docker/postgres/init.sql` inicialización base de PostgreSQL
 
-## Inicio rápido
+## Quick Start
+
+```bash
+git clone <repo-suite>
+cd erp-gob-suite
+cp .env.example .env
+docker compose up --build
+```
+
+## Inicio rápido (ES)
 
 ```bash
 git clone <repo-suite>
