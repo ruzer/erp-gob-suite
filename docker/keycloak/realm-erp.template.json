@@ -1,0 +1,251 @@
+{
+  "realm": "erp",
+  "enabled": true,
+  "displayName": "ERP Institutional Realm",
+  "sslRequired": "external",
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 43200,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "rememberMe": false,
+  "roles": {
+    "realm": [
+      { "name": "ADMIN" },
+      { "name": "USER" },
+      { "name": "OIC.READONLY" },
+      { "name": "OPS.CONSULTAR" },
+      { "name": "EXPEDIENTE.CREAR" },
+      { "name": "EXPEDIENTE.CONSULTAR" },
+      { "name": "EXPEDIENTE.ACTUALIZAR" },
+      { "name": "INVESTIGACION.CREAR" },
+      { "name": "INVESTIGACION.CONSULTAR" },
+      { "name": "NECESIDAD.CREAR" },
+      { "name": "NECESIDAD.CONSULTAR" },
+      { "name": "PROCEDIMIENTO.CREAR" },
+      { "name": "PROCEDIMIENTO.CONSULTAR" },
+      { "name": "PROCEDIMIENTO.ACTUALIZAR" },
+      { "name": "CUADRO_COMPARATIVO.CONSULTAR" },
+      { "name": "CONTRATO.CREAR" },
+      { "name": "CONTRATO.CONSULTAR" },
+      { "name": "CONTRATO.ADJUNTAR_DOCUMENTO" },
+      { "name": "ORDEN.CREAR" },
+      { "name": "ORDEN.CONSULTAR" },
+      { "name": "ORDEN.ACTUALIZAR" },
+      { "name": "RECEPCION.CREAR" },
+      { "name": "RECEPCION.CONSULTAR" },
+      { "name": "RECEPCION.ACTUALIZAR" },
+      { "name": "DOCUMENTO.SUBIR" },
+      { "name": "DOCUMENTO.DESCARGAR" },
+      { "name": "INVENTARIO.CONSULTAR" },
+      { "name": "INVENTARIO.AJUSTAR" },
+      { "name": "INVENTARIO.CONTEO" },
+      { "name": "PRODUCTO.CONSULTAR" },
+      { "name": "PRODUCTO.CREAR" },
+      { "name": "PRODUCTO.ACTUALIZAR" },
+      { "name": "PROVEEDOR.CONSULTAR" },
+      { "name": "PROVEEDOR.CREAR" },
+      { "name": "PROVEEDOR.ACTUALIZAR" },
+      { "name": "FINANCIERO.CONSULTAR" },
+      { "name": "PATRIMONIAL.CONSULTAR" },
+      { "name": "PATRIMONIAL.OPERAR" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "erp-api",
+      "name": "ERP API",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "__KEYCLOAK_API_CLIENT_SECRET__",
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "access.token.lifespan": "600"
+      }
+    },
+    {
+      "clientId": "erp-backend",
+      "name": "ERP Backend",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "__KEYCLOAK_BACKEND_CLIENT_SECRET__",
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "access.token.lifespan": "600"
+      }
+    },
+    {
+      "clientId": "erp-frontend",
+      "name": "ERP Frontend",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "serviceAccountsEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["__APP_URL__/*"],
+      "webOrigins": ["__APP_URL__"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__APP_URL__/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-erp-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "erp-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "frontend.tester",
+      "enabled": true,
+      "email": "frontend.tester@erp.gob.local",
+      "emailVerified": true,
+      "firstName": "Frontend",
+      "lastName": "Tester",
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "__TESTER_PASSWORD__", "temporary": false }],
+      "realmRoles": ["ADMIN", "OPS.CONSULTAR", "USER"]
+    },
+    {
+      "username": "capturista",
+      "enabled": true,
+      "email": "capturista@erp.gob.local",
+      "emailVerified": true,
+      "firstName": "Capturista",
+      "lastName": "Operativo",
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "__CAPTURISTA_PASSWORD__", "temporary": false }],
+      "realmRoles": [
+        "USER",
+        "EXPEDIENTE.CREAR",
+        "EXPEDIENTE.CONSULTAR",
+        "EXPEDIENTE.ACTUALIZAR",
+        "INVESTIGACION.CREAR",
+        "INVESTIGACION.CONSULTAR",
+        "NECESIDAD.CREAR",
+        "NECESIDAD.CONSULTAR",
+        "PROCEDIMIENTO.CREAR",
+        "PROCEDIMIENTO.CONSULTAR",
+        "PROCEDIMIENTO.ACTUALIZAR",
+        "CUADRO_COMPARATIVO.CONSULTAR",
+        "CONTRATO.CREAR",
+        "CONTRATO.CONSULTAR",
+        "CONTRATO.ADJUNTAR_DOCUMENTO",
+        "ORDEN.CREAR",
+        "ORDEN.CONSULTAR",
+        "RECEPCION.CREAR",
+        "RECEPCION.CONSULTAR",
+        "RECEPCION.ACTUALIZAR",
+        "DOCUMENTO.SUBIR",
+        "DOCUMENTO.DESCARGAR",
+        "INVENTARIO.CONSULTAR",
+        "PRODUCTO.CONSULTAR",
+        "PROVEEDOR.CONSULTAR"
+      ]
+    },
+    {
+      "username": "revisor",
+      "enabled": true,
+      "email": "revisor@erp.gob.local",
+      "emailVerified": true,
+      "firstName": "Revisor",
+      "lastName": "Tecnico",
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "__REVISOR_PASSWORD__", "temporary": false }],
+      "realmRoles": [
+        "USER",
+        "EXPEDIENTE.CONSULTAR",
+        "INVESTIGACION.CONSULTAR",
+        "NECESIDAD.CONSULTAR",
+        "PROCEDIMIENTO.CONSULTAR",
+        "CUADRO_COMPARATIVO.CONSULTAR",
+        "ORDEN.CONSULTAR",
+        "RECEPCION.CONSULTAR",
+        "DOCUMENTO.DESCARGAR",
+        "PRODUCTO.CONSULTAR",
+        "PROVEEDOR.CONSULTAR"
+      ]
+    },
+    {
+      "username": "finanzas",
+      "enabled": true,
+      "email": "finanzas@erp.gob.local",
+      "emailVerified": true,
+      "firstName": "Area",
+      "lastName": "Finanzas",
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "__FINANZAS_PASSWORD__", "temporary": false }],
+      "realmRoles": [
+        "USER",
+        "FINANCIERO.CONSULTAR",
+        "EXPEDIENTE.CONSULTAR",
+        "CONTRATO.CONSULTAR",
+        "ORDEN.CONSULTAR",
+        "RECEPCION.CONSULTAR",
+        "DOCUMENTO.DESCARGAR"
+      ]
+    },
+    {
+      "username": "oic",
+      "enabled": true,
+      "email": "oic@erp.gob.local",
+      "emailVerified": true,
+      "firstName": "OIC",
+      "lastName": "Readonly",
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "__OIC_PASSWORD__", "temporary": false }],
+      "realmRoles": [
+        "OIC.READONLY",
+        "OPS.CONSULTAR",
+        "EXPEDIENTE.CONSULTAR",
+        "PROCEDIMIENTO.CONSULTAR",
+        "CUADRO_COMPARATIVO.CONSULTAR",
+        "ORDEN.CONSULTAR",
+        "RECEPCION.CONSULTAR",
+        "INVENTARIO.CONSULTAR",
+        "PROVEEDOR.CONSULTAR",
+        "FINANCIERO.CONSULTAR",
+        "PATRIMONIAL.CONSULTAR",
+        "DOCUMENTO.DESCARGAR"
+      ]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@erp.gob.local",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "ERP",
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "__ADMIN_PASSWORD__", "temporary": false }],
+      "realmRoles": ["ADMIN", "USER", "OPS.CONSULTAR"]
+    }
+  ]
+}

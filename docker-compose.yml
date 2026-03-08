@@ -1,20 +1,40 @@
 name: erp-gob-suite
 
 services:
+  proxy:
+    image: caddy:2.8-alpine
+    container_name: erp-suite-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+      keycloak:
+        condition: service_started
+
   postgres:
     image: postgres:16
     container_name: erp-suite-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-erp}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp}
-      POSTGRES_DB: ${POSTGRES_DB:-erp}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
       TZ: UTC
       PGTZ: UTC
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/postgres/init-keycloak.sh:/docker-entrypoint-initdb.d/init-keycloak.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp} -d ${POSTGRES_DB:-erp}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -23,6 +43,7 @@ services:
   redis:
     image: redis:7
     container_name: erp-suite-redis
+    command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
     healthcheck:
@@ -35,79 +56,88 @@ services:
   minio:
     image: minio/minio:RELEASE.2024-01-16T16-07-38Z
     container_name: erp-suite-minio
-    command: server /data --console-address ":9001"
+    command: server /data
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_REGION: us-east-1
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    expose:
+      - "9000"
     volumes:
       - minio_data:/data
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.5
     container_name: erp-suite-keycloak
-    command: start-dev --import-realm
+    entrypoint: ["/bin/sh", "/opt/keycloak/realm/render-realm.sh"]
     environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_API_CLIENT_SECRET: ${KEYCLOAK_API_CLIENT_SECRET}
+      KEYCLOAK_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET}
+      ERP_FRONTEND_TESTER_PASSWORD: ${ERP_FRONTEND_TESTER_PASSWORD}
+      ERP_CAPTURISTA_PASSWORD: ${ERP_CAPTURISTA_PASSWORD}
+      ERP_REVISOR_PASSWORD: ${ERP_REVISOR_PASSWORD}
+      ERP_FINANZAS_PASSWORD: ${ERP_FINANZAS_PASSWORD}
+      ERP_OIC_PASSWORD: ${ERP_OIC_PASSWORD}
+      ERP_ADMIN_PASSWORD: ${ERP_ADMIN_PASSWORD}
+      APP_URL: ${APP_URL}
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
       KC_DB: postgres
       KC_DB_URL_HOST: postgres
       KC_DB_URL_PORT: 5432
       KC_DB_URL_DATABASE: keycloak
-      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
-      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
-    ports:
-      - "8080:8080"
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_PROXY: edge
+      KC_HOSTNAME: auth.erp.gob.local
+      KC_HTTP_ENABLED: "true"
+    expose:
+      - "8080"
     volumes:
-      - ./docker/keycloak/realm-erp-dev.json:/opt/keycloak/data/import/realm-erp-dev.json:ro
+      - ./docker/keycloak/render-realm.sh:/opt/keycloak/realm/render-realm.sh:ro
+      - ./docker/keycloak/realm-erp.template.json:/opt/keycloak/realm/realm-erp.template.json:ro
     depends_on:
       postgres:
         condition: service_healthy
 
   backend:
     build:
-      context: ./backend/core/backend
-      dockerfile: Dockerfile
-      target: deps
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: runner
     container_name: erp-suite-backend
     working_dir: /usr/src/app
     command: >
-      sh -c "npm ci &&
-      npx prisma generate &&
-      (npx prisma migrate deploy || (echo '[WARN] prisma migrate deploy failed; applying prisma db push' && npx prisma db push --accept-data-loss)) &&
-      npx prisma db seed &&
-      npm run start:dev"
+      sh -c "node /workspace/scripts/apply_canonical_migrations.mjs &&
+      node seed-dist/seed-institucional.js &&
+      npm run start:prod"
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-erp}:${POSTGRES_PASSWORD:-erp}@postgres:5432/${POSTGRES_DB:-erp}?schema=public
-      POSTGRES_DB: ${POSTGRES_DB:-erp}
-      POSTGRES_USER: ${POSTGRES_USER:-erp}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: erp-documentos
       MINIO_REGION: us-east-1
       MINIO_USE_SSL: "false"
       MINIO_PRESIGN_EXPIRES: "900"
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-erp}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_API_CLIENT_ID:-erp-api}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_API_CLIENT_SECRET:-change_me}
-      KEYCLOAK_ISSUER: http://keycloak:8080/realms/${KEYCLOAK_REALM:-erp},http://localhost:8080/realms/${KEYCLOAK_REALM:-erp}
-      KEYCLOAK_AUDIENCE: account,${KEYCLOAK_API_CLIENT_ID:-erp-api}
-      KEYCLOAK_SSL_REQUIRED: none
-    ports:
-      - "13000:3000"
-    volumes:
-      - ./backend/core/backend:/usr/src/app
-      - backend_node_modules:/usr/src/app/node_modules
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_API_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_API_CLIENT_SECRET}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM},http://keycloak:8080/realms/${KEYCLOAK_REALM}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_API_CLIENT_ID}
+      KEYCLOAK_SSL_REQUIRED: external
+      METRICS_REQUIRE_AUTH: "true"
+    expose:
+      - "3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,28 +158,25 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: dev
+      target: runner
     container_name: erp-suite-frontend
     working_dir: /app
-    command: sh -lc "npm ci && npm run dev -- --hostname 0.0.0.0 --port 3001"
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
       NEXT_PUBLIC_API_URL: http://backend:3000
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-erp}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-erp-frontend}
-      KEYCLOAK_FALLBACK_CLIENT_ID: ${KEYCLOAK_API_CLIENT_ID:-erp-api}
-      KEYCLOAK_FALLBACK_CLIENT_SECRET: ${KEYCLOAK_API_CLIENT_SECRET:-change_me}
-      NEXT_PUBLIC_APP_ORIGIN: ${APP_URL:-http://localhost:13001}
-      APP_ALLOWED_ORIGINS: ${APP_URL:-http://localhost:13001}
-      FRONTEND_CSRF_MODE: ${FRONTEND_CSRF_MODE:-warn}
-    ports:
-      - "13001:3001"
-    volumes:
-      - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_FALLBACK_CLIENT_ID: ${KEYCLOAK_API_CLIENT_ID}
+      KEYCLOAK_FALLBACK_CLIENT_SECRET: ${KEYCLOAK_API_CLIENT_SECRET}
+      NEXT_PUBLIC_APP_ORIGIN: ${APP_URL}
+      APP_ALLOWED_ORIGINS: ${APP_URL}
+      FRONTEND_CSRF_MODE: ${FRONTEND_CSRF_MODE}
+      GATEWAY_FETCH_TIMEOUT_MS: "15000"
+    expose:
+      - "3001"
     depends_on:
       backend:
         condition: service_started
@@ -158,5 +185,5 @@ volumes:
   pg_data:
   redis_data:
   minio_data:
-  backend_node_modules:
-  frontend_node_modules:
+  caddy_data:
+  caddy_config:

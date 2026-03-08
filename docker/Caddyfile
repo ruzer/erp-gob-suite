@@ -1,0 +1,21 @@
+{
+  admin off
+}
+
+erp.gob.local {
+  tls internal
+  encode gzip
+  reverse_proxy frontend:3001
+}
+
+api.erp.gob.local {
+  tls internal
+  encode gzip
+  reverse_proxy backend:3000
+}
+
+auth.erp.gob.local {
+  tls internal
+  encode gzip
+  reverse_proxy keycloak:8080
+}
