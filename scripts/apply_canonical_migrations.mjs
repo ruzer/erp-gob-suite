@@ -97,8 +97,65 @@ function applySql(databaseUrl, sql) {
   });
 }
 
+function runScalarQuery(databaseUrl, sql) {
+  return execFileSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-At', '-c', sql], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+  }).trim();
+}
+
+function shouldApplyCanonicalMigrations(databaseUrl) {
+  const publicTableCount = Number(
+    runScalarQuery(
+      databaseUrl,
+      "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';",
+    ),
+  );
+
+  if (Number.isNaN(publicTableCount)) {
+    throw new Error('No se pudo determinar el estado del esquema actual.');
+  }
+
+  if (publicTableCount === 0) {
+    console.log('[migrate] Base vacia detectada; se aplicaran migraciones canonicas');
+    return true;
+  }
+
+  const requiredTables = ['usuario', 'producto', 'proveedor', 'expediente'];
+  const presentTablesRaw = runScalarQuery(
+    databaseUrl,
+    `SELECT COALESCE(string_agg(table_name, ',' ORDER BY table_name), '')
+     FROM information_schema.tables
+     WHERE table_schema = 'public'
+       AND table_name IN (${requiredTables.map((table) => `'${table}'`).join(', ')});`,
+  );
+  const presentTables = new Set(
+    presentTablesRaw
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+
+  const missingTables = requiredTables.filter((table) => !presentTables.has(table));
+  if (missingTables.length === 0) {
+    console.log(
+      `[migrate] Esquema institucional existente detectado (${publicTableCount} tablas); se omiten migraciones canonicas`,
+    );
+    return false;
+  }
+
+  throw new Error(
+    `Esquema parcial detectado (${publicTableCount} tablas publicas, faltan tablas base: ${missingTables.join(
+      ', ',
+    )}). Abortando para evitar una reaplicacion inconsistente de migraciones.`,
+  );
+}
+
 function main() {
   const databaseUrl = requireDatabaseUrl();
+  if (!shouldApplyCanonicalMigrations(databaseUrl)) {
+    return;
+  }
   const executionOrder = resolveMigrationExecutionOrder();
 
   console.log(`[migrate] Aplicando ${executionOrder.length} migraciones canonicas (UP-only)`);

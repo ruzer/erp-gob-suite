@@ -24,9 +24,12 @@ set -a
 set +a
 
 echo "[restore] reiniciando servicios base"
+docker compose -f "${root_dir}/docker-compose.yml" stop proxy frontend backend >/dev/null 2>&1 || true
 docker compose -f "${root_dir}/docker-compose.yml" up -d postgres minio
 
 echo "[restore] limpiando base de datos"
+docker compose -f "${root_dir}/docker-compose.yml" exec -T postgres \
+  psql -U "${POSTGRES_USER}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${POSTGRES_DB}' AND pid <> pg_backend_pid();"
 docker compose -f "${root_dir}/docker-compose.yml" exec -T postgres \
   psql -U "${POSTGRES_USER}" -d postgres -c "DROP DATABASE IF EXISTS ${POSTGRES_DB};"
 docker compose -f "${root_dir}/docker-compose.yml" exec -T postgres \

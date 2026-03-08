@@ -136,6 +136,8 @@ services:
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_API_CLIENT_ID}
       KEYCLOAK_SSL_REQUIRED: external
       METRICS_REQUIRE_AUTH: "true"
+      INSIGHT_SCHEDULER_ENABLED: "false"
+      PROVEEDOR_SCORE_INTEGRATION_ENABLED: "false"
     expose:
       - "3000"
     depends_on:
