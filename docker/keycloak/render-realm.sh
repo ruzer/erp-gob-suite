@@ -4,6 +4,8 @@ set -eu
 template="/opt/keycloak/realm/realm-erp.template.json"
 output="/opt/keycloak/data/import/realm-erp-v1.14.json"
 
+mkdir -p "$(dirname "${output}")"
+
 escape() {
   printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
 }
