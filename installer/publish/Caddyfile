@@ -1,0 +1,60 @@
+{
+	email ops@erp-gob.com
+	admin off
+}
+
+install.erp-gob.com {
+	encode zstd gzip
+
+	log {
+		output file /var/log/caddy/install.erp-gob.access.log
+		format json
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "geolocation=(), camera=(), microphone=()"
+		Content-Security-Policy "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		Cache-Control "no-store, max-age=0"
+	}
+
+	@root path /
+	handle @root {
+		root * /var/www/installer
+		rewrite * /install_cli.sh
+		header Content-Type "text/plain; charset=utf-8"
+		file_server
+	}
+
+	@install path /install.sh /install_cli.sh
+	handle @install {
+		root * /var/www/installer
+		header Content-Type "text/plain; charset=utf-8"
+		file_server
+	}
+
+	@version path /version
+	handle @version {
+		root * /opt/erp-gob-installer
+		rewrite * /VERSION
+		header Content-Type "text/plain; charset=utf-8"
+		file_server
+	}
+
+	@checksums path /checksums.txt
+	handle @checksums {
+		root * /opt/erp-gob-installer
+		header Content-Type "text/plain; charset=utf-8"
+		file_server
+	}
+
+	@invalid method POST PUT PATCH DELETE OPTIONS
+	respond @invalid "Method not allowed" 405
+
+	handle {
+		respond "Not found" 404
+	}
+}

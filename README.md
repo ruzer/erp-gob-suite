@@ -9,7 +9,7 @@ Suite fullstack reproducible del ERP-GOB para despliegue institucional con Docke
 - `git`
 - `curl`
 
-## Installing ERP-GOB
+## Instalación rápida
 
 ```bash
 curl -sSL https://install.erp-gob.com | bash
@@ -40,6 +40,19 @@ El instalador:
 - ejecuta bootstrap institucional
 - valida instalación
 - ejecuta smoke post-install
+
+## Publicación del instalador remoto
+
+Los artefactos de publicación del installer viven en:
+
+- `installer/publish/Caddyfile`
+- `installer/publish/update_installer.sh`
+
+Despliegue esperado del script remoto:
+
+- `https://install.erp-gob.com`
+- `https://install.erp-gob.com/install.sh`
+- `https://install.erp-gob.com/version`
 
 ## Perfiles disponibles
 
