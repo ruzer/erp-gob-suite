@@ -16,6 +16,13 @@ curl -sSL https://install.erp-gob.com | bash
 erp-gob install demo
 ```
 
+Canal temporal equivalente:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/install_cli.sh | bash
+erp-gob install demo
+```
+
 ## Instalación guiada
 
 ```bash
@@ -93,3 +100,4 @@ Ejemplo de tenant:
   - unidad administrativa
   - área inicial
 - Si el instalador no puede escribir `/etc/hosts`, genera `installer-output/hosts.patch`.
+- El instalador remoto deja evidencia en `installer-output/install.log` y `installer-output/install-report.json`.
