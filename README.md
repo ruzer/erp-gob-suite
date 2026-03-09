@@ -1,6 +1,7 @@
 # ERP-GOB
 
-Installer y suite pública del ERP-GOB para despliegue institucional con Docker.
+![Installer](https://img.shields.io/badge/installer-ready-green)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## Quick install
 
@@ -8,6 +9,8 @@ Installer y suite pública del ERP-GOB para despliegue institucional con Docker.
 curl -sSL https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/install_cli.sh | bash
 erp-gob install demo
 ```
+
+Installer y suite pública del ERP-GOB para despliegue institucional con Docker.
 
 Canal oficial previsto:
 
