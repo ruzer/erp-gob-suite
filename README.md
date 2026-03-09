@@ -1,52 +1,86 @@
 # ERP Gubernamental Suite
 
-Suite fullstack reproducible del ERP (backend + frontend + infraestructura) para correr con Docker en cualquier máquina.
+Suite fullstack reproducible del ERP-GOB para despliegue institucional con Docker.
 
 ## Requisitos
 
 - Docker 24+
 - Docker Compose V2
+- `git`
+- `curl`
 
-## Estructura
-
-- `backend/` submódulo de `erp-gob-abastecimiento`
-- `frontend/` submódulo de `erp-gob-frontend`
-- `docker/keycloak/realm-erp-dev.json` realm de desarrollo
-- `docker/postgres/init.sql` inicialización base de PostgreSQL
-
-## Quick Start
+## Instalación guiada
 
 ```bash
 git clone <repo-suite>
 cd erp-gob-suite
-cp .env.example .env
-docker compose up --build
+./erp-gob install demo
 ```
 
-## Inicio rápido (ES)
+El instalador:
+- genera `.env`
+- configura hosts locales para el tenant elegido
+- inicializa submódulos
+- levanta la suite
+- ejecuta bootstrap institucional
+- valida instalación
+- ejecuta smoke post-install
+
+## Perfiles disponibles
+
+- `demo`
+- `piloto`
+- `prod`
+
+Puedes sobreescribir parámetros:
 
 ```bash
-git clone <repo-suite>
-cd erp-gob-suite
-cp .env.example .env
-docker compose up --build
+./erp-gob install \
+  --profile piloto \
+  --institution-name "Secretaría de Administración de Oaxaca" \
+  --tenant-key oaxaca \
+  --state Oaxaca
 ```
 
-## Accesos
+## Comandos del instalador
 
-- Frontend: http://localhost:13001
-- Backend: http://localhost:13000
-- Keycloak: http://localhost:8080
-- MinIO Console: http://localhost:9001
+```bash
+./erp-gob install
+./erp-gob validate
+./erp-gob smoke
+./erp-gob bootstrap --dry-run
+./erp-gob upgrade
+```
+
+## Accesos esperados
+
+- Aplicación: `https://<tenant>.erp.gob.local`
+- API: `https://api.erp.gob.local`
+- Keycloak: `https://auth.erp.gob.local`
+
+Ejemplo de tenant:
+- `https://demo.erp.gob.local`
 
 ## Login demo
 
 - Usuario: `frontend.tester`
 - Password: `Frontend123!`
 
+## Estructura
+
+- `backend/` submódulo de `erp-gob-abastecimiento`
+- `frontend/` submódulo de `erp-gob-frontend`
+- `profiles/` perfiles demo/piloto/prod
+- `scripts/erp-gob-cli.mjs` CLI principal
+- `scripts/bootstrap_institution.mjs` bootstrap institucional
+
 ## Notas operativas
 
-- El backend ejecuta al inicio:
-  - `prisma migrate deploy`
-  - `prisma db seed`
-- El realm de Keycloak se importa automáticamente al arrancar `keycloak`.
+- El backend aplica migración canónica y seed institucional al arrancar.
+- El bootstrap institucional agrega:
+  - institución
+  - configuración/branding
+  - plantilla normativa base
+  - unidad administrativa
+  - área inicial
+- Si el instalador no puede escribir `/etc/hosts`, genera `installer-output/hosts.patch`.
