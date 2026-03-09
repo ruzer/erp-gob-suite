@@ -23,6 +23,20 @@ curl -sSL https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/i
 erp-gob install demo
 ```
 
+## INSTALL FROM INTERNET
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/install_cli.sh | bash
+erp-gob install demo
+```
+
+Si el repositorio sigue privado y GitHub Raw responde `404`, usa el canal oficial:
+
+```bash
+curl -sSL https://install.erp-gob.com | bash
+erp-gob install demo
+```
+
 ## Instalación guiada
 
 ```bash
@@ -52,6 +66,7 @@ Despliegue esperado del script remoto:
 
 - `https://install.erp-gob.com`
 - `https://install.erp-gob.com/install.sh`
+- `https://install.erp-gob.com/installer/install_cli.sh`
 - `https://install.erp-gob.com/version`
 
 ## Perfiles disponibles

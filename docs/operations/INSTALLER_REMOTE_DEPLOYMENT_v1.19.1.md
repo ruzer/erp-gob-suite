@@ -1,5 +1,8 @@
 # Remote Installer Deployment v1.19.1
 
+> Documento supersedido operativamente por `docs/operations/INSTALLER_PUBLICATION_PROCEDURE.md`.
+> Mantener solo como referencia histórica de la primera propuesta de publicación remota.
+
 ## Objetivo
 
 Publicar el installer remoto oficial de ERP-GOB para permitir:
