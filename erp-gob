@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(CDPATH= cd -- "$(dirname -- "$SOURCE")" && pwd)"
+  TARGET="$(readlink "$SOURCE")"
+  if [[ "$TARGET" != /* ]]; then
+    SOURCE="$DIR/$TARGET"
+  else
+    SOURCE="$TARGET"
+  fi
+done
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$SOURCE")" && pwd)"
+
 exec node "$ROOT_DIR/scripts/erp-gob-cli.mjs" "$@"

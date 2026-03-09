@@ -9,12 +9,20 @@ Suite fullstack reproducible del ERP-GOB para despliegue institucional con Docke
 - `git`
 - `curl`
 
+## Installing ERP-GOB
+
+```bash
+curl -sSL https://install.erp-gob.com | bash
+erp-gob install demo
+```
+
 ## Instalación guiada
 
 ```bash
 git clone <repo-suite>
 cd erp-gob-suite
-./erp-gob install demo
+./install.sh
+erp-gob install demo
 ```
 
 El instalador:
@@ -35,7 +43,7 @@ El instalador:
 Puedes sobreescribir parámetros:
 
 ```bash
-./erp-gob install \
+erp-gob install \
   --profile piloto \
   --institution-name "Secretaría de Administración de Oaxaca" \
   --tenant-key oaxaca \
@@ -45,11 +53,12 @@ Puedes sobreescribir parámetros:
 ## Comandos del instalador
 
 ```bash
-./erp-gob install
-./erp-gob validate
-./erp-gob smoke
-./erp-gob bootstrap --dry-run
-./erp-gob upgrade
+erp-gob install demo
+erp-gob validate
+erp-gob smoke
+erp-gob bootstrap --dry-run
+erp-gob upgrade
+erp-gob version
 ```
 
 ## Accesos esperados

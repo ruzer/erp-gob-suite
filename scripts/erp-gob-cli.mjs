@@ -13,10 +13,46 @@ const ROOT = path.resolve(__dirname, '..');
 const ENV_PATH = path.join(ROOT, '.env');
 const EXAMPLE_ENV_PATH = path.join(ROOT, '.env.example');
 const OUTPUT_DIR = path.join(ROOT, 'installer-output');
+const INSTALL_LOG_PATH = path.join(OUTPUT_DIR, 'install.log');
+const INSTALL_REPORT_PATH = path.join(OUTPUT_DIR, 'install-report.json');
+const VERSION = 'v1.19.1';
+const SERVICES = ['backend', 'frontend', 'keycloak', 'postgres', 'redis', 'minio'];
 
-function log(message) { console.log(`[erp-gob] ${message}`); }
-function warn(message) { console.warn(`[erp-gob][warn] ${message}`); }
-function die(message) { console.error(`[erp-gob][error] ${message}`); process.exit(1); }
+let activeReport = null;
+
+function ensureOutputDir() {
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+function writeStructuredLog(level, message) {
+  ensureOutputDir();
+  appendFileSync(INSTALL_LOG_PATH, `${new Date().toISOString()} ${level} ${message}\n`);
+}
+
+function writeReport(partial) {
+  activeReport = { ...(activeReport ?? {}), ...partial };
+  ensureOutputDir();
+  writeFileSync(INSTALL_REPORT_PATH, JSON.stringify(activeReport, null, 2));
+}
+
+function log(message) {
+  writeStructuredLog('INFO', message);
+  console.log(`[erp-gob] ${message}`);
+}
+
+function warn(message) {
+  writeStructuredLog('WARN', message);
+  console.warn(`[erp-gob][warn] ${message}`);
+}
+
+function die(message) {
+  writeStructuredLog('ERROR', message);
+  if (activeReport) {
+    writeReport({ result: 'FAILURE', error: message, finishedAt: new Date().toISOString() });
+  }
+  console.error(`[erp-gob][error] ${message}`);
+  process.exit(1);
+}
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -60,12 +96,65 @@ function capture(command, args, options = {}) {
 }
 
 function ensureCommands() {
-  ['docker', 'git', 'curl'].forEach((command) => {
+  ['docker', 'git', 'curl', 'node', 'lsof'].forEach((command) => {
     try {
       capture('which', [command]);
     } catch {
       die(`Falta comando requerido: ${command}`);
     }
+  });
+}
+
+function parseNodeMajorVersion(rawVersion) {
+  const match = /^v(\d+)/.exec(rawVersion.trim());
+  return match ? Number(match[1]) : NaN;
+}
+
+function assertNodeVersion() {
+  const version = capture('node', ['-v']);
+  const major = parseNodeMajorVersion(version);
+  if (!Number.isFinite(major) || major < 18) {
+    die(`Node.js >= 18 es requerido. Versión detectada: ${version}`);
+  }
+  return version;
+}
+
+async function assertPortsAvailable() {
+  const requiredPorts = [80, 443];
+  const advisoryPorts = [8080, 9000, 5432];
+  const unavailable = [];
+  const advisoryBusy = [];
+  for (const port of [...requiredPorts, ...advisoryPorts]) {
+    try {
+      capture('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN']);
+      if (requiredPorts.includes(port)) {
+        unavailable.push(port);
+      } else {
+        advisoryBusy.push(port);
+      }
+    } catch {
+      // port is free when lsof exits non-zero
+    }
+  }
+  if (unavailable.length > 0) {
+    die(`Puertos ocupados: ${unavailable.join(', ')}. Libéralos antes de instalar.`);
+  }
+  if (advisoryBusy.length > 0) {
+    warn(`Puertos detectados en uso (no bloqueantes para esta suite): ${advisoryBusy.join(', ')}`);
+  }
+}
+
+async function runPreflight() {
+  ensureCommands();
+  const dockerVersion = capture('docker', ['--version']);
+  const dockerComposeVersion = capture('docker', ['compose', 'version']);
+  const nodeVersion = assertNodeVersion();
+  await assertPortsAvailable();
+  writeReport({
+    docker: 'ok',
+    dockerVersion,
+    dockerCompose: dockerComposeVersion,
+    nodeVersion,
   });
 }
 
@@ -294,7 +383,8 @@ function smoke(env) {
 }
 
 async function cmdInstall(rawOptions) {
-  ensureCommands();
+  ensureOutputDir();
+  writeFileSync(INSTALL_LOG_PATH, '');
   const normalized = { ...rawOptions };
   if (!normalized.profile && normalized._[1] && !normalized._[1].startsWith('--')) {
     normalized.profile = normalized._[1];
@@ -302,7 +392,16 @@ async function cmdInstall(rawOptions) {
   }
   const options = await promptIfMissing(normalized);
   const config = buildInstallConfig(options);
-  mkdirSync(OUTPUT_DIR, { recursive: true });
+  writeReport({
+    version: VERSION,
+    profile: config.profile,
+    services: SERVICES,
+    timestamp: new Date().toISOString(),
+    result: 'RUNNING',
+    appUrl: config.env.APP_URL,
+    tenantKey: config.tenantKey,
+  });
+  await runPreflight();
   writeFileSync(ENV_PATH, renderEnv(config.env), 'utf8');
   writeFileSync(path.join(OUTPUT_DIR, 'install-summary.json'), JSON.stringify({ profile: config.profile, appUrl: config.env.APP_URL, tenantKey: config.tenantKey }, null, 2));
   ensureHosts(config, Boolean(options['skip-hosts']));
@@ -316,6 +415,7 @@ async function cmdInstall(rawOptions) {
       smoke(config.env);
     }
   }
+  writeReport({ result: 'SUCCESS', finishedAt: new Date().toISOString() });
   log(`Instalación completa. Acceso principal: ${config.env.APP_URL}`);
 }
 
@@ -374,11 +474,11 @@ function cmdUpgrade(options) {
 }
 
 function help() {
-  console.log(`ERP-GOB installer\n\nUso:\n  ./erp-gob install demo\n  ./erp-gob install [--profile demo|piloto|prod] [--institution-name NOMBRE] [--tenant-key CLAVE] [--state ESTADO] [--yes]\n  ./erp-gob validate\n  ./erp-gob smoke\n  ./erp-gob bootstrap [--dry-run]\n  ./erp-gob upgrade [--skip-backup]\n`);
+  console.log(`ERP-GOB installer\n\nUso:\n  erp-gob install demo\n  erp-gob install [--profile demo|piloto|prod] [--institution-name NOMBRE] [--tenant-key CLAVE] [--state ESTADO] [--yes]\n  erp-gob validate\n  erp-gob smoke\n  erp-gob bootstrap [--dry-run]\n  erp-gob upgrade [--skip-backup]\n  erp-gob version\n`);
 }
 
 const options = parseArgs(process.argv);
-const command = options._[0] || 'help';
+const command = options.version ? 'version' : (options._[0] || 'help');
 
 switch (command) {
   case 'install':
@@ -395,6 +495,9 @@ switch (command) {
     break;
   case 'upgrade':
     cmdUpgrade(options);
+    break;
+  case 'version':
+    console.log(`ERP-GOB Installer ${VERSION}`);
     break;
   default:
     help();
