@@ -4,10 +4,10 @@
 
 - CLI global `erp-gob`
 - comando `erp-gob version`
-- instalador remoto
-- preflight checks
-- logs estructurados de instalacion
-- soporte perfiles demo, piloto y prod
+- instalador remoto para bootstrap del CLI
+- preflight checks antes de instalar
+- logs estructurados de instalación
+- soporte de perfiles `demo`, `piloto` y `prod`
 
 ## Uso
 
@@ -16,18 +16,18 @@ curl -sSL https://install.erp-gob.com | bash
 erp-gob install demo
 ```
 
-## Comandos disponibles
+## Validación mínima
 
 ```bash
 erp-gob version
-erp-gob install demo
-erp-gob install piloto
-erp-gob install prod
 erp-gob validate
 erp-gob smoke
-erp-gob upgrade
 ```
 
-## Alcance
+## Artefactos principales
 
-Esta release convierte el installer de ERP-GOB en un CLI distribuible desde la suite sin modificar backend, frontend, contrato OpenAPI ni logica de negocio.
+- `erp-gob`
+- `install.sh`
+- `installer/install_cli.sh`
+- `installer/publish/Caddyfile`
+- `installer/publish/update_installer.sh`
