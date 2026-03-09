@@ -9,10 +9,17 @@ Suite fullstack reproducible del ERP-GOB para despliegue institucional con Docke
 - `git`
 - `curl`
 
-## Installing ERP-GOB
+## Instalación rápida
 
 ```bash
 curl -sSL https://install.erp-gob.com | bash
+erp-gob install demo
+```
+
+Canal temporal equivalente:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/install_cli.sh | bash
 erp-gob install demo
 ```
 
@@ -33,6 +40,19 @@ El instalador:
 - ejecuta bootstrap institucional
 - valida instalación
 - ejecuta smoke post-install
+
+## Publicación del instalador remoto
+
+Los artefactos de publicación del installer viven en:
+
+- `installer/publish/Caddyfile`
+- `installer/publish/update_installer.sh`
+
+Despliegue esperado del script remoto:
+
+- `https://install.erp-gob.com`
+- `https://install.erp-gob.com/install.sh`
+- `https://install.erp-gob.com/version`
 
 ## Perfiles disponibles
 
@@ -93,3 +113,4 @@ Ejemplo de tenant:
   - unidad administrativa
   - área inicial
 - Si el instalador no puede escribir `/etc/hosts`, genera `installer-output/hosts.patch`.
+- El instalador remoto deja evidencia en `installer-output/install.log` y `installer-output/install-report.json`.
