@@ -8,6 +8,24 @@ erp.gob.local {
   reverse_proxy frontend:3001
 }
 
+oaxaca.erp.gob.local {
+  tls internal
+  encode gzip
+  reverse_proxy frontend:3001
+}
+
+edomex.erp.gob.local {
+  tls internal
+  encode gzip
+  reverse_proxy frontend:3001
+}
+
+demo.erp.gob.local {
+  tls internal
+  encode gzip
+  reverse_proxy frontend:3001
+}
+
 api.erp.gob.local {
   tls internal
   encode gzip
