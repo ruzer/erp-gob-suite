@@ -1,50 +1,68 @@
-# ERP Gubernamental Suite
+# ERP-GOB
 
-Suite fullstack reproducible del ERP-GOB para despliegue institucional con Docker.
+Installer y suite pública del ERP-GOB para despliegue institucional con Docker.
 
-## Requisitos
+## Quick install
 
-- Docker 24+
-- Docker Compose V2
+```bash
+curl -sSL https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/install_cli.sh | bash
+erp-gob install demo
+```
+
+Canal oficial previsto:
+
+```bash
+curl -sSL https://install.erp-gob.com | bash
+erp-gob install demo
+```
+
+## Commands
+
+```bash
+erp-gob install demo
+erp-gob validate
+erp-gob smoke
+erp-gob upgrade
+erp-gob version
+```
+
+Comando avanzado disponible:
+
+```bash
+erp-gob bootstrap --dry-run
+```
+
+## Requirements
+
+- Docker
+- Docker Compose
+- Node >= 18
 - `git`
 - `curl`
 
-## Instalación rápida
+## Profiles
+
+- `demo`
+- `piloto`
+- `prod`
+
+Ejemplo con parámetros explícitos:
 
 ```bash
-curl -sSL https://install.erp-gob.com | bash
-erp-gob install demo
+erp-gob install \
+  --profile piloto \
+  --institution-name "Secretaría de Administración de Oaxaca" \
+  --tenant-key oaxaca \
+  --state Oaxaca
 ```
 
-Canal temporal equivalente:
+## Documentation
 
-```bash
-curl -sSL https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/install_cli.sh | bash
-erp-gob install demo
-```
+- `docs/releases`
+- `docs/operations`
+- `docs/security`
 
-## INSTALL FROM INTERNET
-
-```bash
-curl -sSL https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/install_cli.sh | bash
-erp-gob install demo
-```
-
-Si el repositorio sigue privado y GitHub Raw responde `404`, usa el canal oficial:
-
-```bash
-curl -sSL https://install.erp-gob.com | bash
-erp-gob install demo
-```
-
-## Instalación guiada
-
-```bash
-git clone <repo-suite>
-cd erp-gob-suite
-./install.sh
-erp-gob install demo
-```
+## Operación
 
 El instalador:
 - genera `.env`
@@ -55,77 +73,40 @@ El instalador:
 - valida instalación
 - ejecuta smoke post-install
 
-## Publicación del instalador remoto
-
-Los artefactos de publicación del installer viven en:
-
-- `installer/publish/Caddyfile`
-- `installer/publish/update_installer.sh`
-
-Despliegue esperado del script remoto:
-
-- `https://install.erp-gob.com`
-- `https://install.erp-gob.com/install.sh`
-- `https://install.erp-gob.com/installer/install_cli.sh`
-- `https://install.erp-gob.com/version`
-
-## Perfiles disponibles
-
-- `demo`
-- `piloto`
-- `prod`
-
-Puedes sobreescribir parámetros:
-
-```bash
-erp-gob install \
-  --profile piloto \
-  --institution-name "Secretaría de Administración de Oaxaca" \
-  --tenant-key oaxaca \
-  --state Oaxaca
-```
-
-## Comandos del instalador
-
-```bash
-erp-gob install demo
-erp-gob validate
-erp-gob smoke
-erp-gob bootstrap --dry-run
-erp-gob upgrade
-erp-gob version
-```
-
-## Accesos esperados
-
-- Aplicación: `https://<tenant>.erp.gob.local`
+Accesos esperados:
+- aplicación: `https://<tenant>.erp.gob.local`
 - API: `https://api.erp.gob.local`
 - Keycloak: `https://auth.erp.gob.local`
 
-Ejemplo de tenant:
-- `https://demo.erp.gob.local`
+Login demo:
+- usuario: `frontend.tester`
+- password: `Frontend123!`
 
-## Login demo
+## Publicación del installer
 
-- Usuario: `frontend.tester`
-- Password: `Frontend123!`
+Artefactos de publicación remota:
+- `installer/publish/Caddyfile`
+- `installer/publish/update_installer.sh`
+
+Canales previstos:
+- `https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/install_cli.sh`
+- `https://install.erp-gob.com`
 
 ## Estructura
 
-- `backend/` submódulo de `erp-gob-abastecimiento`
-- `frontend/` submódulo de `erp-gob-frontend`
-- `profiles/` perfiles demo/piloto/prod
-- `scripts/erp-gob-cli.mjs` CLI principal
-- `scripts/bootstrap_institution.mjs` bootstrap institucional
+- `erp-gob`
+- `install.sh`
+- `installer/install_cli.sh`
+- `scripts/erp-gob-cli.mjs`
+- `scripts/bootstrap_institution.mjs`
+- `profiles/demo.env`
+- `profiles/piloto.env`
+- `profiles/prod.env`
+- `docker-compose.yml`
 
-## Notas operativas
+## Notas
 
 - El backend aplica migración canónica y seed institucional al arrancar.
-- El bootstrap institucional agrega:
-  - institución
-  - configuración/branding
-  - plantilla normativa base
-  - unidad administrativa
-  - área inicial
+- El bootstrap institucional agrega institución, branding, plantilla normativa base, unidad administrativa y área inicial.
 - Si el instalador no puede escribir `/etc/hosts`, genera `installer-output/hosts.patch`.
 - El instalador remoto deja evidencia en `installer-output/install.log` y `installer-output/install-report.json`.
