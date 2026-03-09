@@ -30,6 +30,7 @@ erp-gob smoke
 ## Resultados
 
 - URL RAW -> `200`
+- `curl -sSL <raw-url> | bash` -> PASS
 - `erp-gob version` -> PASS
 - `erp-gob install demo` -> PASS
 - `erp-gob validate` -> PASS

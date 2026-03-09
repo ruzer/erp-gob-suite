@@ -24,23 +24,17 @@ curl -I https://raw.githubusercontent.com/ruzer/erp-gob-suite/main/installer/ins
 - `./erp-gob version` -> PASS
 - `./erp-gob validate` -> PASS
 - `./erp-gob smoke` -> PASS
-- `curl -I <raw-url>` -> `404`
+- `curl -I <raw-url>` -> `200`
+- `curl -sSL <raw-url> | bash` -> PASS
+- `erp-gob install demo` -> PASS
 
 ## Confirmación de funcionamiento
 
-El installer funciona correctamente como CLI y como bootstrap local.
-
-La publicación por GitHub Raw no quedó funcional en el momento de esta verificación porque la URL pública devuelve `404`.
-
-## Causa probable
-
-Una de estas dos condiciones sigue presente:
-
-1. el repositorio no es público
-2. el acceso Raw no está habilitado para ese contenido
+El installer funciona correctamente como CLI y como bootstrap remoto usando GitHub Raw como canal temporal.
 
 ## Conclusión
 
 - estado del código: listo
-- estado del canal GitHub Raw: no publicado operativamente
-- canal recomendado mientras tanto: `install.erp-gob.com`
+- estado del canal GitHub Raw: publicado y operativo
+- canal recomendado temporal: GitHub Raw
+- canal recomendado final: `install.erp-gob.com`
