@@ -4,11 +4,28 @@ set -eu
 root_dir="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 backup_dir="${1:-${root_dir}/backups/$(date +%F_%H%M%S)}"
 
-mkdir -p "${backup_dir}"
+env_value() {
+  key="$1"
+  node -e "
+const fs = require('fs');
+const file = process.argv[1];
+const key = process.argv[2];
+const lines = fs.readFileSync(file, 'utf8').split(/\\r?\\n/);
+for (const line of lines) {
+  if (!line || line.startsWith('#')) continue;
+  const idx = line.indexOf('=');
+  if (idx < 0) continue;
+  if (line.slice(0, idx).trim() !== key) continue;
+  process.stdout.write(line.slice(idx + 1));
+  process.exit(0);
+}
+process.exit(1);
+" "${root_dir}/.env" "$key"
+}
 
-set -a
-. "${root_dir}/.env"
-set +a
+mkdir -p "${backup_dir}"
+POSTGRES_USER="$(env_value POSTGRES_USER)"
+POSTGRES_DB="$(env_value POSTGRES_DB)"
 
 echo "[backup] destino: ${backup_dir}"
 

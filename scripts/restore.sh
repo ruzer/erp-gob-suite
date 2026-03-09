@@ -9,6 +9,25 @@ fi
 root_dir="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 backup_dir="$1"
 
+env_value() {
+  key="$1"
+  node -e "
+const fs = require('fs');
+const file = process.argv[1];
+const key = process.argv[2];
+const lines = fs.readFileSync(file, 'utf8').split(/\\r?\\n/);
+for (const line of lines) {
+  if (!line || line.startsWith('#')) continue;
+  const idx = line.indexOf('=');
+  if (idx < 0) continue;
+  if (line.slice(0, idx).trim() !== key) continue;
+  process.stdout.write(line.slice(idx + 1));
+  process.exit(0);
+}
+process.exit(1);
+" "${root_dir}/.env" "$key"
+}
+
 if [ ! -f "${backup_dir}/postgres.dump" ]; then
   echo "backup postgres no encontrado en ${backup_dir}"
   exit 1
@@ -19,9 +38,8 @@ if [ ! -f "${backup_dir}/minio.tgz" ]; then
   exit 1
 fi
 
-set -a
-. "${root_dir}/.env"
-set +a
+POSTGRES_USER="$(env_value POSTGRES_USER)"
+POSTGRES_DB="$(env_value POSTGRES_DB)"
 
 echo "[restore] reiniciando servicios base"
 docker compose -f "${root_dir}/docker-compose.yml" stop proxy frontend backend >/dev/null 2>&1 || true

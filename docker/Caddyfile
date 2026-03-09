@@ -2,34 +2,7 @@
   admin off
 }
 
-erp.gob.local {
-  tls internal
-  encode gzip
-  reverse_proxy frontend:3001 {
-    header_up X-Forwarded-Host {host}
-    header_up X-Forwarded-Proto {scheme}
-  }
-}
-
-oaxaca.erp.gob.local {
-  tls internal
-  encode gzip
-  reverse_proxy frontend:3001 {
-    header_up X-Forwarded-Host {host}
-    header_up X-Forwarded-Proto {scheme}
-  }
-}
-
-edomex.erp.gob.local {
-  tls internal
-  encode gzip
-  reverse_proxy frontend:3001 {
-    header_up X-Forwarded-Host {host}
-    header_up X-Forwarded-Proto {scheme}
-  }
-}
-
-demo.erp.gob.local {
+erp.gob.local, *.erp.gob.local {
   tls internal
   encode gzip
   reverse_proxy frontend:3001 {
