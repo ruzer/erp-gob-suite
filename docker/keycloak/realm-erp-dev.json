@@ -20,7 +20,9 @@
       { "name": "ROLE_COMPRAS" },
       { "name": "ROLE_ALMACEN" },
       { "name": "OIC.READONLY" },
-      { "name": "OPS.CONSULTAR" }
+      { "name": "OPS.CONSULTAR" },
+      { "name": "CONFIGURACION.CONSULTAR" },
+      { "name": "FINANCIERO.CONSULTAR" }
     ]
   },
   "clients": [
@@ -115,7 +117,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["ADMIN", "OPS.CONSULTAR"]
+      "realmRoles": ["ADMIN", "OPS.CONSULTAR", "CONFIGURACION.CONSULTAR", "FINANCIERO.CONSULTAR"]
     }
   ]
 }

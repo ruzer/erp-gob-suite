@@ -51,6 +51,7 @@
       { "name": "PROVEEDOR.CONSULTAR" },
       { "name": "PROVEEDOR.CREAR" },
       { "name": "PROVEEDOR.ACTUALIZAR" },
+      { "name": "CONFIGURACION.CONSULTAR" },
       { "name": "FINANCIERO.CONSULTAR" },
       { "name": "PATRIMONIAL.CONSULTAR" },
       { "name": "PATRIMONIAL.OPERAR" }
@@ -131,7 +132,7 @@
       "lastName": "Tester",
       "requiredActions": [],
       "credentials": [{ "type": "password", "value": "__TESTER_PASSWORD__", "temporary": false }],
-      "realmRoles": ["ADMIN", "OPS.CONSULTAR", "USER"]
+      "realmRoles": ["ADMIN", "OPS.CONSULTAR", "USER", "CONFIGURACION.CONSULTAR", "FINANCIERO.CONSULTAR"]
     },
     {
       "username": "capturista",
