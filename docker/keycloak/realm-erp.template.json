@@ -132,7 +132,24 @@
       "lastName": "Tester",
       "requiredActions": [],
       "credentials": [{ "type": "password", "value": "__TESTER_PASSWORD__", "temporary": false }],
-      "realmRoles": ["ADMIN", "OPS.CONSULTAR", "USER", "CONFIGURACION.CONSULTAR", "FINANCIERO.CONSULTAR"]
+      "realmRoles": [
+        "ADMIN",
+        "OPS.CONSULTAR",
+        "USER",
+        "CONFIGURACION.CONSULTAR",
+        "FINANCIERO.CONSULTAR",
+        "EXPEDIENTE.CREAR",
+        "EXPEDIENTE.CONSULTAR",
+        "EXPEDIENTE.ACTUALIZAR",
+        "INVESTIGACION.CREAR",
+        "INVESTIGACION.CONSULTAR",
+        "NECESIDAD.CREAR",
+        "NECESIDAD.CONSULTAR",
+        "PROCEDIMIENTO.CREAR",
+        "PROCEDIMIENTO.CONSULTAR",
+        "PROCEDIMIENTO.ACTUALIZAR",
+        "CUADRO_COMPARATIVO.CONSULTAR"
+      ]
     },
     {
       "username": "capturista",

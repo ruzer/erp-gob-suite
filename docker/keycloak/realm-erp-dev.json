@@ -21,6 +21,17 @@
       { "name": "ROLE_ALMACEN" },
       { "name": "OIC.READONLY" },
       { "name": "OPS.CONSULTAR" },
+      { "name": "EXPEDIENTE.CREAR" },
+      { "name": "EXPEDIENTE.CONSULTAR" },
+      { "name": "EXPEDIENTE.ACTUALIZAR" },
+      { "name": "INVESTIGACION.CREAR" },
+      { "name": "INVESTIGACION.CONSULTAR" },
+      { "name": "NECESIDAD.CREAR" },
+      { "name": "NECESIDAD.CONSULTAR" },
+      { "name": "PROCEDIMIENTO.CREAR" },
+      { "name": "PROCEDIMIENTO.CONSULTAR" },
+      { "name": "PROCEDIMIENTO.ACTUALIZAR" },
+      { "name": "CUADRO_COMPARATIVO.CONSULTAR" },
       { "name": "CONFIGURACION.CONSULTAR" },
       { "name": "FINANCIERO.CONSULTAR" }
     ]
@@ -117,7 +128,23 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["ADMIN", "OPS.CONSULTAR", "CONFIGURACION.CONSULTAR", "FINANCIERO.CONSULTAR"]
+      "realmRoles": [
+        "ADMIN",
+        "OPS.CONSULTAR",
+        "CONFIGURACION.CONSULTAR",
+        "FINANCIERO.CONSULTAR",
+        "EXPEDIENTE.CREAR",
+        "EXPEDIENTE.CONSULTAR",
+        "EXPEDIENTE.ACTUALIZAR",
+        "INVESTIGACION.CREAR",
+        "INVESTIGACION.CONSULTAR",
+        "NECESIDAD.CREAR",
+        "NECESIDAD.CONSULTAR",
+        "PROCEDIMIENTO.CREAR",
+        "PROCEDIMIENTO.CONSULTAR",
+        "PROCEDIMIENTO.ACTUALIZAR",
+        "CUADRO_COMPARATIVO.CONSULTAR"
+      ]
     }
   ]
 }
