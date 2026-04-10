@@ -33,6 +33,8 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./docker/postgres/init-keycloak.sh:/docker-entrypoint-initdb.d/init-keycloak.sh:ro
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -46,6 +48,8 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -61,6 +65,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_REGION: us-east-1
+    ports:
+      - "19000:9000"
     expose:
       - "9000"
     volumes:
@@ -90,10 +96,10 @@ services:
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
       KC_PROXY: edge
-      KC_HOSTNAME: auth.erp.gob.local
+      KC_HOSTNAME_URL: ${KEYCLOAK_PUBLIC_URL}
       KC_HTTP_ENABLED: "true"
-    expose:
-      - "8080"
+    ports:
+      - "18080:8080"
     volumes:
       - ./docker/keycloak/render-realm.sh:/opt/keycloak/realm/render-realm.sh:ro
       - ./docker/keycloak/realm-erp.template.json:/opt/keycloak/realm/realm-erp.template.json:ro
@@ -127,6 +133,7 @@ services:
       MINIO_BUCKET: erp-documentos
       MINIO_REGION: us-east-1
       MINIO_USE_SSL: "false"
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
       MINIO_PRESIGN_EXPIRES: "900"
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM}
@@ -138,8 +145,8 @@ services:
       METRICS_REQUIRE_AUTH: "true"
       INSIGHT_SCHEDULER_ENABLED: "false"
       PROVEEDOR_SCORE_INTEGRATION_ENABLED: "false"
-    expose:
-      - "3000"
+    ports:
+      - "13000:3000"
     depends_on:
       postgres:
         condition: service_healthy

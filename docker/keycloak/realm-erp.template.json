@@ -2,12 +2,15 @@
   "realm": "erp",
   "enabled": true,
   "displayName": "ERP Institutional Realm",
-  "sslRequired": "external",
+  "sslRequired": "none",
   "accessTokenLifespan": 600,
   "ssoSessionIdleTimeout": 28800,
   "ssoSessionMaxLifespan": 43200,
   "revokeRefreshToken": true,
   "refreshTokenMaxReuse": 0,
+  "attributes": {
+    "frontendUrl": "__KEYCLOAK_PUBLIC_URL__"
+  },
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
