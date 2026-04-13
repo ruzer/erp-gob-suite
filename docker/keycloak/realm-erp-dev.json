@@ -114,6 +114,36 @@
   ],
   "users": [
     {
+      "username": "capturista",
+      "enabled": true,
+      "email": "capturista@erp.gob.local",
+      "emailVerified": true,
+      "firstName": "Capturista",
+      "lastName": "Operativo",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Capturista123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER",
+        "EXPEDIENTE.CREAR",
+        "EXPEDIENTE.CONSULTAR",
+        "EXPEDIENTE.ACTUALIZAR",
+        "INVESTIGACION.CREAR",
+        "INVESTIGACION.CONSULTAR",
+        "NECESIDAD.CREAR",
+        "NECESIDAD.CONSULTAR",
+        "PROCEDIMIENTO.CREAR",
+        "PROCEDIMIENTO.CONSULTAR",
+        "PROCEDIMIENTO.ACTUALIZAR",
+        "CUADRO_COMPARATIVO.CONSULTAR"
+      ]
+    },
+    {
       "username": "frontend.tester",
       "enabled": true,
       "email": "frontend.tester@test.gob",
