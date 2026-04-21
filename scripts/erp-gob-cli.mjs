@@ -173,6 +173,25 @@ function parseEnvFile(filePath) {
   return result;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || `${value}`.trim().length === 0) {
+    return fallback;
+  }
+
+  const normalized = `${value}`.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
 function normalizeTenantKey(value) {
   return String(value ?? '')
     .trim()
@@ -228,6 +247,10 @@ function buildInstallConfig(options) {
     KEYCLOAK_DB_PASSWORD: isDemo ? 'erp_demo_keycloak_db' : randomSecret(18),
     MINIO_ROOT_PASSWORD: isDemo ? 'erp_demo_minio' : randomSecret(18),
     KEYCLOAK_API_CLIENT_SECRET: isDemo ? 'erp_demo_api_secret' : randomSecret(24),
+    KEYCLOAK_API_DIRECT_GRANTS:
+      options['api-direct-grants']
+      ?? profileEnv.KEYCLOAK_API_DIRECT_GRANTS
+      ?? (isDemo ? 'true' : 'false'),
     KEYCLOAK_BACKEND_CLIENT_SECRET: isDemo ? 'erp_demo_backend_secret' : randomSecret(24),
     ERP_FRONTEND_TESTER_PASSWORD: isDemo ? 'Frontend123!' : randomSecret(12),
     ERP_CAPTURISTA_PASSWORD: isDemo ? 'Capturista123!' : randomSecret(12),
@@ -270,11 +293,118 @@ function renderEnv(env) {
     'POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_DB',
     'KEYCLOAK_ADMIN','KEYCLOAK_ADMIN_PASSWORD','KEYCLOAK_DB_USER','KEYCLOAK_DB_PASSWORD',
     'MINIO_ROOT_USER','MINIO_ROOT_PASSWORD',
-    'APP_URL','API_URL','KEYCLOAK_PUBLIC_URL','KEYCLOAK_REALM','KEYCLOAK_CLIENT_ID','KEYCLOAK_API_CLIENT_ID','KEYCLOAK_API_CLIENT_SECRET','KEYCLOAK_BACKEND_CLIENT_SECRET','FRONTEND_CSRF_MODE','APP_ALLOWED_ORIGINS',
+    'APP_URL','API_URL','KEYCLOAK_PUBLIC_URL','KEYCLOAK_REALM','KEYCLOAK_CLIENT_ID','KEYCLOAK_API_CLIENT_ID','KEYCLOAK_API_CLIENT_SECRET','KEYCLOAK_API_DIRECT_GRANTS','KEYCLOAK_BACKEND_CLIENT_SECRET','FRONTEND_CSRF_MODE','APP_ALLOWED_ORIGINS',
     'ERP_FRONTEND_TESTER_PASSWORD','ERP_CAPTURISTA_PASSWORD','ERP_REVISOR_PASSWORD','ERP_FINANZAS_PASSWORD','ERP_OIC_PASSWORD','ERP_ADMIN_PASSWORD',
     'INSTALL_PROFILE','ERP_INSTITUTION_NAME','ERP_TENANT_KEY','ERP_INSTITUTION_STATE','ERP_NORMATIVE_LAW','ERP_NORMATIVE_LICITACION_THRESHOLD','ERP_NORMATIVE_INVITACION_THRESHOLD','ERP_BRANDING_NAME','ERP_BRANDING_PRIMARY_COLOR','ERP_BRANDING_SECONDARY_COLOR','ERP_BRANDING_LOGO_URL','ERP_ACTIVE_MODULES','ERP_UNIT_NAME','ERP_AREA_NAME','ERP_AREA_TYPE',
   ];
   return `${orderedKeys.map((key) => `${key}=${env[key] ?? ''}`).join('\n')}\n`;
+}
+
+function normalizeOrigin(rawValue) {
+  try {
+    return new URL(rawValue).origin;
+  } catch {
+    return null;
+  }
+}
+
+function resolveBaseDomain(env) {
+  const fromKeycloak = normalizeOrigin(env.KEYCLOAK_PUBLIC_URL);
+  if (fromKeycloak) {
+    const host = new URL(fromKeycloak).hostname;
+    if (host.startsWith('auth.') && host.length > 'auth.'.length) {
+      return host.slice('auth.'.length);
+    }
+  }
+
+  const fromApp = normalizeOrigin(env.APP_URL);
+  if (fromApp) {
+    const host = new URL(fromApp).hostname;
+    const parts = host.split('.');
+    if (parts.length >= 3) {
+      return parts.slice(1).join('.');
+    }
+  }
+
+  return 'erp.gob.local';
+}
+
+function unique(values) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function shouldEnableApiDirectGrants(env) {
+  return parseBoolean(env.KEYCLOAK_API_DIRECT_GRANTS, (env.INSTALL_PROFILE || '').trim() === 'demo');
+}
+
+function buildAudienceMapper(name, audience) {
+  return {
+    name,
+    protocol: 'openid-connect',
+    protocolMapper: 'oidc-audience-mapper',
+    consentRequired: false,
+    config: {
+      'included.client.audience': audience,
+      'id.token.claim': 'false',
+      'access.token.claim': 'true',
+    },
+  };
+}
+
+function buildRealmRolesMapper() {
+  return {
+    name: 'realm-roles',
+    protocol: 'openid-connect',
+    protocolMapper: 'oidc-usermodel-realm-role-mapper',
+    consentRequired: false,
+    config: {
+      multivalued: 'true',
+      'userinfo.token.claim': 'false',
+      'id.token.claim': 'false',
+      'access.token.claim': 'true',
+      'claim.name': 'realm_access.roles',
+      'jsonType.label': 'String',
+    },
+  };
+}
+
+function mergeProtocolMappers(existing = [], desired = []) {
+  const byName = new Map(existing.map((mapper) => [mapper.name, mapper]));
+  desired.forEach((mapper) => {
+    byName.set(mapper.name, mapper);
+  });
+  return Array.from(byName.values());
+}
+
+function buildFrontendClientConfig(env) {
+  const tenantKey = normalizeTenantKey(env.ERP_TENANT_KEY || 'demo');
+  const baseDomain = resolveBaseDomain(env);
+  const origins = [];
+
+  const addOrigin = (value) => {
+    const origin = normalizeOrigin(value);
+    if (origin) {
+      origins.push(origin);
+    }
+  };
+
+  addOrigin(env.APP_URL);
+  addOrigin(`https://${baseDomain}`);
+  if (tenantKey.length > 0) {
+    addOrigin(`https://${tenantKey}.${baseDomain}`);
+  }
+
+  const explicitOrigins = unique(origins);
+  const wildcardOrigin = `https://*.${baseDomain}`;
+  const webOrigins = unique([...explicitOrigins, wildcardOrigin]);
+  const redirectUris = unique([...explicitOrigins.map((origin) => `${origin}/*`), `${wildcardOrigin}/*`]);
+
+  return {
+    baseDomain,
+    redirectUris,
+    webOrigins,
+    postLogoutRedirectUris: redirectUris.join(' '),
+  };
 }
 
 function ensureHosts(config, skipHosts = false) {
@@ -310,6 +440,147 @@ function ensureHosts(config, skipHosts = false) {
 
 function composeUp() {
   run('docker', ['compose', 'up', '--build', '-d']);
+}
+
+async function getKeycloakAdminToken(env, tries = 60) {
+  const keycloakPublicUrl = (env.KEYCLOAK_PUBLIC_URL || 'http://localhost:18080').replace(/\/+$/, '');
+  const username = env.KEYCLOAK_ADMIN || 'admin';
+  const password = env.KEYCLOAK_ADMIN_PASSWORD;
+
+  if (!password) {
+    die('Falta KEYCLOAK_ADMIN_PASSWORD para reconciliar el cliente OIDC.');
+  }
+
+  const body = new URLSearchParams({
+    client_id: 'admin-cli',
+    username,
+    password,
+    grant_type: 'password',
+  });
+
+  for (let attempt = 1; attempt <= tries; attempt += 1) {
+    try {
+      const response = await fetch(`${keycloakPublicUrl}/realms/master/protocol/openid-connect/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (response.ok) {
+        const payload = await response.json();
+        if (payload?.access_token) {
+          return payload.access_token;
+        }
+      }
+    } catch {
+      // retry until Keycloak becomes ready
+    }
+
+    await sleep(1_000);
+  }
+
+  die('Timeout autenticando contra Keycloak Admin API.');
+}
+
+async function getKeycloakClient(env, clientId) {
+  const keycloakPublicUrl = (env.KEYCLOAK_PUBLIC_URL || 'http://localhost:18080').replace(/\/+$/, '');
+  const realm = env.KEYCLOAK_REALM || 'erp';
+  const accessToken = await getKeycloakAdminToken(env);
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  const clientResponse = await fetch(
+    `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}/clients?clientId=${encodeURIComponent(clientId)}`,
+    { headers, signal: AbortSignal.timeout(10_000) },
+  );
+
+  if (!clientResponse.ok) {
+    die(`No fue posible consultar el cliente ${clientId} en Keycloak (${clientResponse.status}).`);
+  }
+
+  const clients = await clientResponse.json();
+  const clientSummary = clients.find((entry) => entry.clientId === clientId) ?? clients[0];
+  if (!clientSummary?.id) {
+    die(`Cliente ${clientId} no encontrado en Keycloak.`);
+  }
+
+  const fullClientResponse = await fetch(
+    `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}/clients/${clientSummary.id}`,
+    { headers, signal: AbortSignal.timeout(10_000) },
+  );
+
+  if (!fullClientResponse.ok) {
+    die(`No fue posible cargar la configuración completa del cliente ${clientId} (${fullClientResponse.status}).`);
+  }
+
+  const client = await fullClientResponse.json();
+  return { accessToken, headers, client, keycloakPublicUrl, realm };
+}
+
+async function updateKeycloakClient({ keycloakPublicUrl, realm, headers, client, clientId }) {
+  const updateResponse = await fetch(
+    `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}/clients/${client.id}`,
+    {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(client),
+      signal: AbortSignal.timeout(10_000),
+    },
+  );
+
+  if (!updateResponse.ok) {
+    const reason = await updateResponse.text();
+    die(`No fue posible reconciliar el cliente ${clientId} en Keycloak (${updateResponse.status}): ${reason}`);
+  }
+}
+
+async function syncKeycloakFrontendClient(env) {
+  const clientId = env.KEYCLOAK_CLIENT_ID || 'erp-frontend';
+  const { headers, client, keycloakPublicUrl, realm } = await getKeycloakClient(env, clientId);
+
+  const { baseDomain, redirectUris, webOrigins, postLogoutRedirectUris } = buildFrontendClientConfig(env);
+  const nextClient = JSON.parse(JSON.stringify(client));
+  nextClient.redirectUris = redirectUris;
+  nextClient.webOrigins = webOrigins;
+  nextClient.attributes = {
+    ...(nextClient.attributes ?? {}),
+    'pkce.code.challenge.method': 'S256',
+    'post.logout.redirect.uris': postLogoutRedirectUris,
+  };
+
+  await updateKeycloakClient({ keycloakPublicUrl, realm, headers, client: nextClient, clientId });
+
+  log(
+    `Cliente Keycloak ${clientId} reconciliado para ${baseDomain} (${redirectUris.join(', ')})`,
+  );
+}
+
+async function syncKeycloakApiClient(env) {
+  const clientId = env.KEYCLOAK_API_CLIENT_ID || 'erp-api';
+  const { headers, client, keycloakPublicUrl, realm } = await getKeycloakClient(env, clientId);
+  const nextClient = JSON.parse(JSON.stringify(client));
+  const directGrantsEnabled = shouldEnableApiDirectGrants(env);
+
+  nextClient.directAccessGrantsEnabled = directGrantsEnabled;
+  nextClient.protocolMappers = mergeProtocolMappers(nextClient.protocolMappers ?? [], [
+    buildAudienceMapper('audience-erp-api', clientId),
+    buildAudienceMapper('audience-account', 'account'),
+    buildRealmRolesMapper(),
+  ]);
+
+  await updateKeycloakClient({ keycloakPublicUrl, realm, headers, client: nextClient, clientId });
+
+  log(
+    `Cliente Keycloak ${clientId} reconciliado para API directa (direct grants ${directGrantsEnabled ? 'ON' : 'OFF'})`,
+  );
+}
+
+async function syncKeycloakClients(env) {
+  await syncKeycloakFrontendClient(env);
+  await syncKeycloakApiClient(env);
 }
 
 function waitForUrl(url, resolveHost, expectedStatus, tries = 60) {
@@ -408,6 +679,7 @@ async function cmdInstall(rawOptions) {
   run('git', ['submodule', 'update', '--init', '--recursive']);
   if (!options['skip-start']) {
     composeUp();
+    await syncKeycloakClients(config.env);
     waitForUrl(`${config.env.APP_URL}/login`, extractHost(config.env.APP_URL), 200, 60);
     runBootstrap(config.env);
     validateInstalledStack(config.env);
@@ -430,8 +702,20 @@ function cmdSmoke() {
   smoke(env);
 }
 
-function cmdBootstrap(options) {
+async function cmdAuthSync() {
   const env = loadCurrentEnv();
+  await syncKeycloakClients(env);
+  log('Sincronización de Keycloak PASS');
+}
+
+async function cmdBootstrap(options) {
+  const env = loadCurrentEnv();
+  const effectiveEnv = {
+    ...env,
+    APP_URL: options['app-url'] || env.APP_URL,
+    ERP_TENANT_KEY: options['tenant-key'] || env.ERP_TENANT_KEY,
+    KEYCLOAK_PUBLIC_URL: options['keycloak-public-url'] || env.KEYCLOAK_PUBLIC_URL,
+  };
   run('docker', [
     'compose', 'exec', '-T', 'backend',
     'node', '/workspace/scripts/bootstrap_institution.mjs',
@@ -452,9 +736,12 @@ function cmdBootstrap(options) {
     '--area-type', options['area-type'] || env.ERP_AREA_TYPE,
     ...(options['dry-run'] ? ['--dry-run'] : []),
   ]);
+  if (!options['dry-run']) {
+    await syncKeycloakClients(effectiveEnv);
+  }
 }
 
-function cmdUpgrade(options) {
+async function cmdUpgrade(options) {
   ensureCommands();
   if (!options['skip-backup']) {
     run('sh', [path.join(ROOT, 'scripts', 'backup.sh')]);
@@ -467,6 +754,7 @@ function cmdUpgrade(options) {
   run('git', ['submodule', 'update', '--init', '--recursive', '--remote']);
   composeUp();
   const env = loadCurrentEnv();
+  await syncKeycloakClients(env);
   runBootstrap(env);
   validateInstalledStack(env);
   smoke(env);
@@ -474,7 +762,7 @@ function cmdUpgrade(options) {
 }
 
 function help() {
-  console.log(`ERP-GOB installer\n\nUso:\n  erp-gob install demo\n  erp-gob install [--profile demo|piloto|prod] [--institution-name NOMBRE] [--tenant-key CLAVE] [--state ESTADO] [--yes]\n  erp-gob validate\n  erp-gob smoke\n  erp-gob bootstrap [--dry-run]\n  erp-gob upgrade [--skip-backup]\n  erp-gob version\n`);
+  console.log(`ERP-GOB installer\n\nUso:\n  erp-gob install demo\n  erp-gob install [--profile demo|piloto|prod] [--institution-name NOMBRE] [--tenant-key CLAVE] [--state ESTADO] [--yes]\n  erp-gob validate\n  erp-gob smoke\n  erp-gob auth-sync\n  erp-gob bootstrap [--dry-run]\n  erp-gob upgrade [--skip-backup]\n  erp-gob version\n`);
 }
 
 const options = parseArgs(process.argv);
@@ -490,11 +778,14 @@ switch (command) {
   case 'smoke':
     cmdSmoke();
     break;
+  case 'auth-sync':
+    await cmdAuthSync();
+    break;
   case 'bootstrap':
-    cmdBootstrap(options);
+    await cmdBootstrap(options);
     break;
   case 'upgrade':
-    cmdUpgrade(options);
+    await cmdUpgrade(options);
     break;
   case 'version':
     console.log(`ERP-GOB Installer ${VERSION}`);

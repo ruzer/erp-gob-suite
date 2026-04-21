@@ -69,13 +69,51 @@
       "publicClient": false,
       "secret": "__KEYCLOAK_API_CLIENT_SECRET__",
       "serviceAccountsEnabled": true,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": __KEYCLOAK_API_DIRECT_GRANTS__,
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
       "fullScopeAllowed": false,
       "attributes": {
         "access.token.lifespan": "600"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-erp-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "erp-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-account",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "account",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "false",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
     },
     {
       "clientId": "erp-backend",
