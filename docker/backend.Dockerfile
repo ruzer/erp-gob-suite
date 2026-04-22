@@ -18,6 +18,7 @@ ENV DATABASE_URL="postgresql://user:pass@localhost:5432/erp?schema=public"
 RUN npx prisma generate
 RUN npm run build
 RUN npx tsc prisma/seed/seed-institucional.ts --module nodenext --moduleResolution nodenext --target ES2023 --esModuleInterop --outDir /usr/src/app/seed-dist
+RUN npx tsc prisma/seed/seed-patrimonio-demo.ts --module nodenext --moduleResolution nodenext --target ES2023 --esModuleInterop --outDir /usr/src/app/seed-dist
 
 FROM node:20-slim AS runner
 WORKDIR /usr/src/app

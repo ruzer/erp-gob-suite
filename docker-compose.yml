@@ -117,10 +117,12 @@ services:
     command: >
       sh -c "node /workspace/scripts/apply_canonical_migrations.mjs &&
       node seed-dist/seed-institucional.js &&
+      if [ \"$$INSTALL_PROFILE\" = \"demo\" ]; then node seed-dist/seed-patrimonio-demo.js; fi &&
       npm run start:prod"
     environment:
       NODE_ENV: production
       PORT: 3000
+      INSTALL_PROFILE: ${INSTALL_PROFILE}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

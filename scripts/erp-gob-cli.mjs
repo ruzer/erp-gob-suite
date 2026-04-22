@@ -623,6 +623,74 @@ function loadCurrentEnv() {
   return parseEnvFile(ENV_PATH);
 }
 
+function isLocalPublicUrl(value) {
+  if (!value) return true;
+  try {
+    const hostname = new URL(value).hostname.trim().toLowerCase();
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  } catch {
+    return true;
+  }
+}
+
+function reconcilePublicSurfaceEnv(env, options = {}) {
+  const tenantKey = normalizeTenantKey(options['tenant-key'] || env.ERP_TENANT_KEY || 'demo');
+  const baseDomain = options['base-domain'] || 'erp.gob.local';
+  const appHost = `${tenantKey}.${baseDomain}`;
+
+  const nextEnv = { ...env };
+
+  if (options['app-url']) {
+    nextEnv.APP_URL = options['app-url'];
+  } else if (isLocalPublicUrl(env.APP_URL)) {
+    nextEnv.APP_URL = `https://${appHost}`;
+  }
+
+  if (options['api-url']) {
+    nextEnv.API_URL = options['api-url'];
+  } else if (isLocalPublicUrl(env.API_URL)) {
+    nextEnv.API_URL = `https://api.${baseDomain}`;
+  }
+
+  if (options['keycloak-public-url']) {
+    nextEnv.KEYCLOAK_PUBLIC_URL = options['keycloak-public-url'];
+  }
+
+  if (options['allowed-origins']) {
+    nextEnv.APP_ALLOWED_ORIGINS = options['allowed-origins'];
+  } else {
+    const configuredOrigins = (env.APP_ALLOWED_ORIGINS || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    const hasOnlyLocalOrigins =
+      configuredOrigins.length === 0 ||
+      configuredOrigins.every((origin) => {
+        try {
+          const hostname = new URL(origin).hostname.trim().toLowerCase();
+          return hostname === 'localhost' || hostname === '127.0.0.1';
+        } catch {
+          return true;
+        }
+      });
+    if (hasOnlyLocalOrigins) {
+      nextEnv.APP_ALLOWED_ORIGINS = `${nextEnv.APP_URL},https://${baseDomain}`;
+    }
+  }
+
+  return nextEnv;
+}
+
+function persistEnvIfChanged(nextEnv) {
+  const current = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, 'utf8') : '';
+  const rendered = renderEnv(nextEnv);
+  if (current === rendered) {
+    return false;
+  }
+  writeFileSync(ENV_PATH, rendered, 'utf8');
+  return true;
+}
+
 function extractHost(url) {
   return new URL(url).host;
 }
@@ -703,8 +771,13 @@ function cmdSmoke() {
 }
 
 async function cmdAuthSync() {
-  const env = loadCurrentEnv();
+  const currentEnv = loadCurrentEnv();
+  const env = reconcilePublicSurfaceEnv(currentEnv);
+  const changed = persistEnvIfChanged(env);
   await syncKeycloakClients(env);
+  if (changed) {
+    log(`Entorno público reconciliado en .env (${env.APP_URL})`);
+  }
   log('Sincronización de Keycloak PASS');
 }
 
