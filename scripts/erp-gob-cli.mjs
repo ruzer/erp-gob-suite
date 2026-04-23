@@ -308,6 +308,16 @@ function normalizeOrigin(rawValue) {
   }
 }
 
+function isLocalPublicUrl(value) {
+  if (!value) return true;
+  try {
+    const hostname = new URL(value).hostname.trim().toLowerCase();
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  } catch {
+    return true;
+  }
+}
+
 function resolveBaseDomain(env) {
   const fromKeycloak = normalizeOrigin(env.KEYCLOAK_PUBLIC_URL);
   if (fromKeycloak) {
@@ -331,6 +341,69 @@ function resolveBaseDomain(env) {
 
 function unique(values) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function resolveKeycloakPublicUrl(env) {
+  const configured = normalizeOrigin(env.KEYCLOAK_PUBLIC_URL);
+  if (configured && !isLocalPublicUrl(configured)) {
+    return configured.replace(/\/+$/, '');
+  }
+
+  return `https://auth.${resolveBaseDomain(env)}`;
+}
+
+function buildCurlResolveArgs(url) {
+  const parsed = new URL(url);
+  if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+    return [];
+  }
+
+  const port = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+  return ['--resolve', `${parsed.hostname}:${port}:127.0.0.1`];
+}
+
+function captureHttp(url, { method = 'GET', headers = {}, body, includeHeaders = false } = {}) {
+  const parsed = new URL(url);
+  const args = ['-sS'];
+
+  if (includeHeaders) {
+    args.push('-I');
+  }
+
+  if (parsed.protocol === 'https:') {
+    args.push('-k');
+  }
+
+  args.push(...buildCurlResolveArgs(url));
+
+  if (!includeHeaders && method !== 'GET') {
+    args.push('-X', method);
+  }
+
+  Object.entries(headers).forEach(([key, value]) => {
+    args.push('-H', `${key}: ${value}`);
+  });
+
+  if (body !== undefined) {
+    args.push('--data-raw', typeof body === 'string' ? body : JSON.stringify(body));
+  }
+
+  args.push('-w', '__HTTP_STATUS__%{http_code}', url);
+
+  const raw = capture('curl', args);
+  const marker = '__HTTP_STATUS__';
+  const markerIndex = raw.lastIndexOf(marker);
+  const payload = markerIndex >= 0 ? raw.slice(0, markerIndex) : raw;
+  const status = markerIndex >= 0 ? Number(raw.slice(markerIndex + marker.length)) : 0;
+
+  let json = null;
+  try {
+    json = payload ? JSON.parse(payload) : null;
+  } catch {
+    json = null;
+  }
+
+  return { status, payload, json };
 }
 
 function shouldEnableApiDirectGrants(env) {
@@ -443,7 +516,7 @@ function composeUp() {
 }
 
 async function getKeycloakAdminToken(env, tries = 60) {
-  const keycloakPublicUrl = (env.KEYCLOAK_PUBLIC_URL || 'http://localhost:18080').replace(/\/+$/, '');
+  const keycloakPublicUrl = resolveKeycloakPublicUrl(env);
   const username = env.KEYCLOAK_ADMIN || 'admin';
   const password = env.KEYCLOAK_ADMIN_PASSWORD;
 
@@ -460,15 +533,14 @@ async function getKeycloakAdminToken(env, tries = 60) {
 
   for (let attempt = 1; attempt <= tries; attempt += 1) {
     try {
-      const response = await fetch(`${keycloakPublicUrl}/realms/master/protocol/openid-connect/token`, {
+      const response = captureHttp(`${keycloakPublicUrl}/realms/master/protocol/openid-connect/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body,
-        signal: AbortSignal.timeout(10_000),
+        body: body.toString(),
       });
 
-      if (response.ok) {
-        const payload = await response.json();
+      if (response.status >= 200 && response.status < 300) {
+        const payload = response.json;
         if (payload?.access_token) {
           return payload.access_token;
         }
@@ -484,7 +556,7 @@ async function getKeycloakAdminToken(env, tries = 60) {
 }
 
 async function getKeycloakClient(env, clientId) {
-  const keycloakPublicUrl = (env.KEYCLOAK_PUBLIC_URL || 'http://localhost:18080').replace(/\/+$/, '');
+  const keycloakPublicUrl = resolveKeycloakPublicUrl(env);
   const realm = env.KEYCLOAK_REALM || 'erp';
   const accessToken = await getKeycloakAdminToken(env);
   const headers = {
@@ -492,47 +564,46 @@ async function getKeycloakClient(env, clientId) {
     'Content-Type': 'application/json',
   };
 
-  const clientResponse = await fetch(
+  const clientResponse = captureHttp(
     `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}/clients?clientId=${encodeURIComponent(clientId)}`,
-    { headers, signal: AbortSignal.timeout(10_000) },
+    { headers },
   );
 
-  if (!clientResponse.ok) {
+  if (!(clientResponse.status >= 200 && clientResponse.status < 300)) {
     die(`No fue posible consultar el cliente ${clientId} en Keycloak (${clientResponse.status}).`);
   }
 
-  const clients = await clientResponse.json();
+  const clients = Array.isArray(clientResponse.json) ? clientResponse.json : [];
   const clientSummary = clients.find((entry) => entry.clientId === clientId) ?? clients[0];
   if (!clientSummary?.id) {
     die(`Cliente ${clientId} no encontrado en Keycloak.`);
   }
 
-  const fullClientResponse = await fetch(
+  const fullClientResponse = captureHttp(
     `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}/clients/${clientSummary.id}`,
-    { headers, signal: AbortSignal.timeout(10_000) },
+    { headers },
   );
 
-  if (!fullClientResponse.ok) {
+  if (!(fullClientResponse.status >= 200 && fullClientResponse.status < 300)) {
     die(`No fue posible cargar la configuración completa del cliente ${clientId} (${fullClientResponse.status}).`);
   }
 
-  const client = await fullClientResponse.json();
+  const client = fullClientResponse.json;
   return { accessToken, headers, client, keycloakPublicUrl, realm };
 }
 
 async function updateKeycloakClient({ keycloakPublicUrl, realm, headers, client, clientId }) {
-  const updateResponse = await fetch(
+  const updateResponse = captureHttp(
     `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}/clients/${client.id}`,
     {
       method: 'PUT',
       headers,
-      body: JSON.stringify(client),
-      signal: AbortSignal.timeout(10_000),
+      body: client,
     },
   );
 
-  if (!updateResponse.ok) {
-    const reason = await updateResponse.text();
+  if (!(updateResponse.status >= 200 && updateResponse.status < 300)) {
+    const reason = updateResponse.payload || 'sin detalle';
     die(`No fue posible reconciliar el cliente ${clientId} en Keycloak (${updateResponse.status}): ${reason}`);
   }
 }
@@ -583,10 +654,16 @@ async function syncKeycloakClients(env) {
   await syncKeycloakApiClient(env);
 }
 
-function waitForUrl(url, resolveHost, expectedStatus, tries = 60) {
+function waitForUrl(url, expectedStatus, tries = 60) {
   for (let attempt = 1; attempt <= tries; attempt += 1) {
     try {
-      const headers = capture('curl', ['-k', '-I', '--resolve', `${resolveHost}:443:127.0.0.1`, url], { env: { LC_ALL: 'C' } });
+      const parsed = new URL(url);
+      const args = [];
+      if (parsed.protocol === 'https:') {
+        args.push('-k');
+      }
+      args.push('-I', ...buildCurlResolveArgs(url), url);
+      const headers = capture('curl', args, { env: { LC_ALL: 'C' } });
       if (headers.includes(`HTTP/2 ${expectedStatus}`) || headers.includes(`HTTP/1.1 ${expectedStatus}`)) {
         return;
       }
@@ -623,16 +700,6 @@ function loadCurrentEnv() {
   return parseEnvFile(ENV_PATH);
 }
 
-function isLocalPublicUrl(value) {
-  if (!value) return true;
-  try {
-    const hostname = new URL(value).hostname.trim().toLowerCase();
-    return hostname === 'localhost' || hostname === '127.0.0.1';
-  } catch {
-    return true;
-  }
-}
-
 function reconcilePublicSurfaceEnv(env, options = {}) {
   const tenantKey = normalizeTenantKey(options['tenant-key'] || env.ERP_TENANT_KEY || 'demo');
   const baseDomain = options['base-domain'] || 'erp.gob.local';
@@ -654,6 +721,8 @@ function reconcilePublicSurfaceEnv(env, options = {}) {
 
   if (options['keycloak-public-url']) {
     nextEnv.KEYCLOAK_PUBLIC_URL = options['keycloak-public-url'];
+  } else if (isLocalPublicUrl(env.KEYCLOAK_PUBLIC_URL)) {
+    nextEnv.KEYCLOAK_PUBLIC_URL = `https://auth.${baseDomain}`;
   }
 
   if (options['allowed-origins']) {
@@ -703,18 +772,23 @@ function validateInstalledStack(env) {
       die(`Servicio no encontrado en docker compose ps: ${service}`);
     }
   });
-  waitForUrl(`${env.APP_URL}/login`, extractHost(env.APP_URL), 200, 30);
-  waitForUrl(`https://${extractHost(env.API_URL)}/`, extractHost(env.API_URL), 404, 5);
+  waitForUrl(`${env.APP_URL}/login`, 200, 30);
+  waitForUrl(`https://${extractHost(env.API_URL)}/`, 404, 5);
+  waitForUrl(`${resolveKeycloakPublicUrl(env)}/realms/${env.KEYCLOAK_REALM || 'erp'}/.well-known/openid-configuration`, 200, 30);
 }
 
 function smoke(env) {
-  const appHost = extractHost(env.APP_URL);
-  waitForUrl(`${env.APP_URL}/login`, appHost, 200, 30);
-  const authRedirect = capture('curl', ['-k', '-I', '--resolve', `${appHost}:443:127.0.0.1`, `${env.APP_URL}/api/auth/login`]);
+  waitForUrl(`${env.APP_URL}/login`, 200, 30);
+  const keycloakPublicUrl = resolveKeycloakPublicUrl(env);
+  waitForUrl(`${keycloakPublicUrl}/realms/${env.KEYCLOAK_REALM || 'erp'}/.well-known/openid-configuration`, 200, 30);
+  const authRedirect = capture('curl', ['-k', '-I', ...buildCurlResolveArgs(`${env.APP_URL}/api/auth/login`), `${env.APP_URL}/api/auth/login`]);
   if (!authRedirect.includes(`redirect_uri=${encodeURIComponent(`${env.APP_URL}/api/auth/callback`)}`)) {
     die('El redirect_uri OIDC no coincide con el origen público configurado.');
   }
-  const dashboard = capture('curl', ['-k', '-I', '--resolve', `${appHost}:443:127.0.0.1`, `${env.APP_URL}/dashboard`]);
+  if (!authRedirect.includes(`${keycloakPublicUrl}/realms/${env.KEYCLOAK_REALM || 'erp'}/protocol/openid-connect/auth`)) {
+    die('El login OIDC no está redirigiendo al host público configurado de Keycloak.');
+  }
+  const dashboard = capture('curl', ['-k', '-I', ...buildCurlResolveArgs(`${env.APP_URL}/dashboard`), `${env.APP_URL}/dashboard`]);
   if (!(dashboard.includes('HTTP/2 302') || dashboard.includes('HTTP/1.1 302'))) {
     die('Dashboard no redirigió a login sin sesión como se esperaba.');
   }
@@ -748,7 +822,7 @@ async function cmdInstall(rawOptions) {
   if (!options['skip-start']) {
     composeUp();
     await syncKeycloakClients(config.env);
-    waitForUrl(`${config.env.APP_URL}/login`, extractHost(config.env.APP_URL), 200, 60);
+    waitForUrl(`${config.env.APP_URL}/login`, 200, 60);
     runBootstrap(config.env);
     validateInstalledStack(config.env);
     if (!options['skip-smoke']) {
