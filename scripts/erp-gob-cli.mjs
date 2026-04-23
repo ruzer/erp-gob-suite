@@ -308,6 +308,19 @@ function normalizeOrigin(rawValue) {
   }
 }
 
+function parseOriginList(rawValue) {
+  if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
+    return [];
+  }
+
+  return unique(
+    rawValue
+      .split(/[,\s]+/)
+      .map((value) => normalizeOrigin(value))
+      .filter(Boolean),
+  );
+}
+
 function isLocalPublicUrl(value) {
   if (!value) return true;
   try {
@@ -453,6 +466,7 @@ function buildFrontendClientConfig(env) {
   const tenantKey = normalizeTenantKey(env.ERP_TENANT_KEY || 'demo');
   const baseDomain = resolveBaseDomain(env);
   const origins = [];
+  const installProfile = String(env.INSTALL_PROFILE || '').trim().toLowerCase();
 
   const addOrigin = (value) => {
     const origin = normalizeOrigin(value);
@@ -462,9 +476,14 @@ function buildFrontendClientConfig(env) {
   };
 
   addOrigin(env.APP_URL);
+  parseOriginList(env.APP_ALLOWED_ORIGINS).forEach(addOrigin);
   addOrigin(`https://${baseDomain}`);
   if (tenantKey.length > 0) {
     addOrigin(`https://${tenantKey}.${baseDomain}`);
+  }
+  if (installProfile === 'demo') {
+    addOrigin('http://localhost:3100');
+    addOrigin('http://localhost:13001');
   }
 
   const explicitOrigins = unique(origins);
@@ -592,6 +611,27 @@ async function getKeycloakClient(env, clientId) {
   return { accessToken, headers, client, keycloakPublicUrl, realm };
 }
 
+async function getKeycloakRealm(env) {
+  const keycloakPublicUrl = resolveKeycloakPublicUrl(env);
+  const realm = env.KEYCLOAK_REALM || 'erp';
+  const accessToken = await getKeycloakAdminToken(env);
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  const realmResponse = captureHttp(
+    `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}`,
+    { headers },
+  );
+
+  if (!(realmResponse.status >= 200 && realmResponse.status < 300) || !realmResponse.json) {
+    die(`No fue posible cargar la configuración del realm ${realm} en Keycloak (${realmResponse.status}).`);
+  }
+
+  return { accessToken, headers, realmConfig: realmResponse.json, keycloakPublicUrl, realm };
+}
+
 async function updateKeycloakClient({ keycloakPublicUrl, realm, headers, client, clientId }) {
   const updateResponse = captureHttp(
     `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}/clients/${client.id}`,
@@ -606,6 +646,37 @@ async function updateKeycloakClient({ keycloakPublicUrl, realm, headers, client,
     const reason = updateResponse.payload || 'sin detalle';
     die(`No fue posible reconciliar el cliente ${clientId} en Keycloak (${updateResponse.status}): ${reason}`);
   }
+}
+
+async function updateKeycloakRealm({ keycloakPublicUrl, realm, headers, realmConfig }) {
+  const updateResponse = captureHttp(
+    `${keycloakPublicUrl}/admin/realms/${encodeURIComponent(realm)}`,
+    {
+      method: 'PUT',
+      headers,
+      body: realmConfig,
+    },
+  );
+
+  if (!(updateResponse.status >= 200 && updateResponse.status < 300)) {
+    const reason = updateResponse.payload || 'sin detalle';
+    die(`No fue posible reconciliar el realm ${realm} en Keycloak (${updateResponse.status}): ${reason}`);
+  }
+}
+
+async function syncKeycloakRealm(env) {
+  const { headers, realmConfig, keycloakPublicUrl, realm } = await getKeycloakRealm(env);
+  const nextRealm = JSON.parse(JSON.stringify(realmConfig));
+  const frontendUrl = resolveKeycloakPublicUrl(env);
+
+  nextRealm.attributes = {
+    ...(nextRealm.attributes ?? {}),
+    frontendUrl,
+  };
+
+  await updateKeycloakRealm({ keycloakPublicUrl, realm, headers, realmConfig: nextRealm });
+
+  log(`Realm Keycloak ${realm} reconciliado con frontendUrl ${frontendUrl}`);
 }
 
 async function syncKeycloakFrontendClient(env) {
@@ -650,6 +721,7 @@ async function syncKeycloakApiClient(env) {
 }
 
 async function syncKeycloakClients(env) {
+  await syncKeycloakRealm(env);
   await syncKeycloakFrontendClient(env);
   await syncKeycloakApiClient(env);
 }
@@ -775,12 +847,28 @@ function validateInstalledStack(env) {
   waitForUrl(`${env.APP_URL}/login`, 200, 30);
   waitForUrl(`https://${extractHost(env.API_URL)}/`, 404, 5);
   waitForUrl(`${resolveKeycloakPublicUrl(env)}/realms/${env.KEYCLOAK_REALM || 'erp'}/.well-known/openid-configuration`, 200, 30);
+
+  const keycloakPublicUrl = resolveKeycloakPublicUrl(env);
+  const expectedIssuer = `${keycloakPublicUrl}/realms/${env.KEYCLOAK_REALM || 'erp'}`;
+  const wellKnown = captureHttp(`${expectedIssuer}/.well-known/openid-configuration`);
+  if (wellKnown.json?.issuer !== expectedIssuer) {
+    die(`Keycloak expone issuer inválido. Esperado: ${expectedIssuer}. Actual: ${wellKnown.json?.issuer || '<vacío>'}`);
+  }
 }
 
 function smoke(env) {
   waitForUrl(`${env.APP_URL}/login`, 200, 30);
   const keycloakPublicUrl = resolveKeycloakPublicUrl(env);
   waitForUrl(`${keycloakPublicUrl}/realms/${env.KEYCLOAK_REALM || 'erp'}/.well-known/openid-configuration`, 200, 30);
+  const expectedIssuer = `${keycloakPublicUrl}/realms/${env.KEYCLOAK_REALM || 'erp'}`;
+  const wellKnown = captureHttp(`${expectedIssuer}/.well-known/openid-configuration`);
+  if (wellKnown.json?.issuer !== expectedIssuer) {
+    die(`Keycloak well-known publicó issuer inválido. Esperado: ${expectedIssuer}. Actual: ${wellKnown.json?.issuer || '<vacío>'}`);
+  }
+  const authorizationEndpoint = String(wellKnown.json?.authorization_endpoint || '');
+  if (!authorizationEndpoint.startsWith(`${expectedIssuer}/protocol/openid-connect/auth`)) {
+    die(`Keycloak well-known publicó authorization_endpoint inválido: ${authorizationEndpoint || '<vacío>'}`);
+  }
   const authRedirect = capture('curl', ['-k', '-I', ...buildCurlResolveArgs(`${env.APP_URL}/api/auth/login`), `${env.APP_URL}/api/auth/login`]);
   if (!authRedirect.includes(`redirect_uri=${encodeURIComponent(`${env.APP_URL}/api/auth/callback`)}`)) {
     die('El redirect_uri OIDC no coincide con el origen público configurado.');
