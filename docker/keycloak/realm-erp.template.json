@@ -142,11 +142,11 @@
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "fullScopeAllowed": true,
-      "redirectUris": ["__APP_URL__/*", "https://*.erp.gob.local/*"],
-      "webOrigins": ["__APP_URL__", "https://*.erp.gob.local"],
+      "redirectUris": ["__APP_URL__/*", "https://*.erp.gob.local/*", "http://localhost:3100/*"],
+      "webOrigins": ["__APP_URL__", "https://*.erp.gob.local", "http://localhost:3100"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "__APP_URL__/* https://*.erp.gob.local/*"
+        "post.logout.redirect.uris": "__APP_URL__/* https://*.erp.gob.local/* http://localhost:3100/*"
       },
       "protocolMappers": [
         {
