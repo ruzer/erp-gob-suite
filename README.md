@@ -25,6 +25,7 @@ erp-gob install demo
 erp-gob install demo
 erp-gob validate
 erp-gob smoke
+erp-gob smoke-patrimonial
 erp-gob upgrade
 erp-gob version
 ```
@@ -34,6 +35,14 @@ Comando avanzado disponible:
 ```bash
 erp-gob bootstrap --dry-run
 ```
+
+Smoke funcional patrimonial:
+
+```bash
+erp-gob smoke-patrimonial
+```
+
+Valida compra multi-area patrimonial serializada: crea el caso minimo, confirma recepcion por API, verifica dos bienes creados y comprueba que `GET /activos/{id}/historial` conserva area/necesidad/proveedor de origen.
 
 ## Requirements
 
