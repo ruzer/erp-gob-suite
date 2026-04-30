@@ -2,3 +2,5 @@
 .DS_Store
 installer-output/
 backups/
+
+.tmp-evidence/
