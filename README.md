@@ -29,6 +29,8 @@ erp-gob smoke-patrimonial
 erp-gob smoke-admin-personas
 erp-gob smoke-mantenimiento
 erp-gob smoke-inventario-global
+erp-gob smoke-proveedores
+erp-gob smoke-compra-multi-area
 erp-gob upgrade
 erp-gob version
 ```
@@ -53,9 +55,11 @@ Smokes funcionales administrativos:
 erp-gob smoke-admin-personas
 erp-gob smoke-mantenimiento
 erp-gob smoke-inventario-global
+erp-gob smoke-proveedores
+erp-gob smoke-compra-multi-area
 ```
 
-`smoke-admin-personas` valida alta, consulta y edicion de Personas. `smoke-mantenimiento` valida mantenimiento correctivo, orden de trabajo, autorizacion, inicio, recepcion, cierre y lectura de indicadores de vehiculos/inmuebles. `smoke-inventario-global` valida consulta de almacenes, existencias por almacen/producto, kardex, reservas, reorden, vencimientos, transferencias y conteo ciclico con limpieza de datos.
+`smoke-admin-personas` valida alta, consulta y edicion de Personas. `smoke-mantenimiento` valida mantenimiento correctivo, orden de trabajo, autorizacion, inicio, recepcion, cierre y lectura de indicadores de vehiculos/inmuebles. `smoke-inventario-global` valida consulta de almacenes, existencias por almacen/producto, kardex, reservas, reorden, vencimientos, transferencias y conteo ciclico con limpieza de datos. `smoke-proveedores` valida alta de proveedor, padron, contacto, domicilio, cuenta bancaria, declaracion, workflow y read models relacionados con limpieza de datos. `smoke-compra-multi-area` valida una compra operativa consumible para dos areas: recepcion por API, orden surtida, origen area/necesidad por renglon e impacto de inventario con limpieza de datos.
 
 ## Requirements
 

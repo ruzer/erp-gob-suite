@@ -952,6 +952,16 @@ function cmdSmokeInventarioGlobal() {
   run('node', [path.join(ROOT, 'scripts', 'smoke_inventario_global.mjs')]);
 }
 
+function cmdSmokeProveedores() {
+  loadCurrentEnv();
+  run('node', [path.join(ROOT, 'scripts', 'smoke_proveedores_operativo.mjs')]);
+}
+
+function cmdSmokeCompraMultiAreaOperativa() {
+  loadCurrentEnv();
+  run('node', [path.join(ROOT, 'scripts', 'smoke_compra_multi_area_operativa.mjs')]);
+}
+
 async function cmdAuthSync() {
   const currentEnv = loadCurrentEnv();
   const env = reconcilePublicSurfaceEnv(currentEnv);
@@ -1017,7 +1027,7 @@ async function cmdUpgrade(options) {
 }
 
 function help() {
-  console.log(`ERP-GOB installer\n\nUso:\n  erp-gob install demo\n  erp-gob install [--profile demo|piloto|prod] [--institution-name NOMBRE] [--tenant-key CLAVE] [--state ESTADO] [--yes]\n  erp-gob validate\n  erp-gob smoke\n  erp-gob smoke-patrimonial\n  erp-gob smoke-admin-personas\n  erp-gob smoke-mantenimiento\n  erp-gob smoke-inventario-global\n  erp-gob auth-sync\n  erp-gob bootstrap [--dry-run]\n  erp-gob upgrade [--skip-backup]\n  erp-gob version\n`);
+  console.log(`ERP-GOB installer\n\nUso:\n  erp-gob install demo\n  erp-gob install [--profile demo|piloto|prod] [--institution-name NOMBRE] [--tenant-key CLAVE] [--state ESTADO] [--yes]\n  erp-gob validate\n  erp-gob smoke\n  erp-gob smoke-patrimonial\n  erp-gob smoke-admin-personas\n  erp-gob smoke-mantenimiento\n  erp-gob smoke-inventario-global\n  erp-gob smoke-proveedores\n  erp-gob smoke-compra-multi-area\n  erp-gob auth-sync\n  erp-gob bootstrap [--dry-run]\n  erp-gob upgrade [--skip-backup]\n  erp-gob version\n`);
 }
 
 const options = parseArgs(process.argv);
@@ -1048,6 +1058,14 @@ switch (command) {
   case 'smoke-inventario-global':
   case 'smoke:inventario-global':
     cmdSmokeInventarioGlobal();
+    break;
+  case 'smoke-proveedores':
+  case 'smoke:proveedores':
+    cmdSmokeProveedores();
+    break;
+  case 'smoke-compra-multi-area':
+  case 'smoke:compra-multi-area':
+    cmdSmokeCompraMultiAreaOperativa();
     break;
   case 'auth-sync':
     await cmdAuthSync();
