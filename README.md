@@ -28,6 +28,7 @@ erp-gob smoke
 erp-gob smoke-patrimonial
 erp-gob smoke-admin-personas
 erp-gob smoke-mantenimiento
+erp-gob smoke-inventario-global
 erp-gob upgrade
 erp-gob version
 ```
@@ -51,9 +52,10 @@ Smokes funcionales administrativos:
 ```bash
 erp-gob smoke-admin-personas
 erp-gob smoke-mantenimiento
+erp-gob smoke-inventario-global
 ```
 
-`smoke-admin-personas` valida alta, consulta y edicion de Personas. `smoke-mantenimiento` valida mantenimiento correctivo, orden de trabajo, autorizacion, inicio, recepcion, cierre y lectura de indicadores de vehiculos/inmuebles.
+`smoke-admin-personas` valida alta, consulta y edicion de Personas. `smoke-mantenimiento` valida mantenimiento correctivo, orden de trabajo, autorizacion, inicio, recepcion, cierre y lectura de indicadores de vehiculos/inmuebles. `smoke-inventario-global` valida consulta de almacenes, existencias por almacen/producto, kardex, reservas, reorden, vencimientos, transferencias y conteo ciclico con limpieza de datos.
 
 ## Requirements
 

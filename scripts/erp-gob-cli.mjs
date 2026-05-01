@@ -947,6 +947,11 @@ function cmdSmokeMantenimiento() {
   run('node', [path.join(ROOT, 'scripts', 'smoke_mantenimiento_operativo.mjs')]);
 }
 
+function cmdSmokeInventarioGlobal() {
+  loadCurrentEnv();
+  run('node', [path.join(ROOT, 'scripts', 'smoke_inventario_global.mjs')]);
+}
+
 async function cmdAuthSync() {
   const currentEnv = loadCurrentEnv();
   const env = reconcilePublicSurfaceEnv(currentEnv);
@@ -1012,7 +1017,7 @@ async function cmdUpgrade(options) {
 }
 
 function help() {
-  console.log(`ERP-GOB installer\n\nUso:\n  erp-gob install demo\n  erp-gob install [--profile demo|piloto|prod] [--institution-name NOMBRE] [--tenant-key CLAVE] [--state ESTADO] [--yes]\n  erp-gob validate\n  erp-gob smoke\n  erp-gob smoke-patrimonial\n  erp-gob smoke-admin-personas\n  erp-gob smoke-mantenimiento\n  erp-gob auth-sync\n  erp-gob bootstrap [--dry-run]\n  erp-gob upgrade [--skip-backup]\n  erp-gob version\n`);
+  console.log(`ERP-GOB installer\n\nUso:\n  erp-gob install demo\n  erp-gob install [--profile demo|piloto|prod] [--institution-name NOMBRE] [--tenant-key CLAVE] [--state ESTADO] [--yes]\n  erp-gob validate\n  erp-gob smoke\n  erp-gob smoke-patrimonial\n  erp-gob smoke-admin-personas\n  erp-gob smoke-mantenimiento\n  erp-gob smoke-inventario-global\n  erp-gob auth-sync\n  erp-gob bootstrap [--dry-run]\n  erp-gob upgrade [--skip-backup]\n  erp-gob version\n`);
 }
 
 const options = parseArgs(process.argv);
@@ -1039,6 +1044,10 @@ switch (command) {
   case 'smoke-mantenimiento':
   case 'smoke:mantenimiento':
     cmdSmokeMantenimiento();
+    break;
+  case 'smoke-inventario-global':
+  case 'smoke:inventario-global':
+    cmdSmokeInventarioGlobal();
     break;
   case 'auth-sync':
     await cmdAuthSync();
