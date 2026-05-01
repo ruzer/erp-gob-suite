@@ -11,6 +11,47 @@ const migrationsDir = path.join(ROOT, 'docs', 'db', 'migrations');
 const migrationOrderFile = path.join(ROOT, 'docs', 'db', 'MIGRATION_ORDER_CANONICAL.md');
 const SUPPLEMENTAL_FEATURE_MIGRATIONS = [
   {
+    name: '20260214_add_consumibles_projection_tables',
+    dependencyTables: ['inventario', 'configuracion_stock', 'solicitud_resurtido', 'almacen'],
+    requiredTables: ['consumibles_projection_almacen', 'consumibles_projection_kpis'],
+    requiredColumns: {
+      consumibles_projection_almacen: [
+        'id',
+        'almacen_id',
+        'producto_id',
+        'variante_id',
+        'stock_actual',
+        'stock_minimo',
+        'stock_objetivo',
+        'bajo_minimo',
+        'cobertura_dias',
+        'riesgo',
+        'solicitudes_activas',
+        'updated_at',
+      ],
+      consumibles_projection_kpis: [
+        'id',
+        'total_skus',
+        'total_bajo_minimo',
+        'total_solicitudes_activas',
+        'cobertura_promedio',
+        'riesgo_global',
+        'updated_at',
+      ],
+    },
+    requiredConstraints: [
+      'consumibles_projection_almacen_pkey',
+      'consumibles_projection_kpis_pkey',
+      'consumibles_projection_almacen_fk_almacen',
+    ],
+    requiredIndexes: [
+      'uq_consumibles_projection_almacen_sku',
+      'idx_consumibles_projection_almacen_almacen',
+      'idx_consumibles_projection_almacen_producto',
+      'idx_consumibles_projection_almacen_bajo_minimo',
+    ],
+  },
+  {
     name: '20260424120000_add_sc_multi_area_origin',
     altersExistingTables: true,
     dependencyTables: [
@@ -431,18 +472,34 @@ function assertSupplementalMigrationShape(databaseUrl, migration) {
   }
 }
 
-function resolvePrismaMigrationFile(migrationName) {
+function resolveSupplementalMigrationSql(migrationName) {
   const candidates = [
-    path.join(process.cwd(), 'prisma', 'migrations', migrationName, 'migration.sql'),
-    path.join(ROOT, 'backend', 'core', 'backend', 'prisma', 'migrations', migrationName, 'migration.sql'),
+    {
+      filePath: path.join(process.cwd(), 'prisma', 'migrations', migrationName, 'migration.sql'),
+      mode: 'raw',
+    },
+    {
+      filePath: path.join(ROOT, 'backend', 'core', 'backend', 'prisma', 'migrations', migrationName, 'migration.sql'),
+      mode: 'raw',
+    },
+    {
+      filePath: path.join(ROOT, 'backend', 'docs', 'db', 'migrations', `${migrationName}.sql`),
+      mode: 'canonical',
+    },
   ];
 
-  const found = candidates.find((candidate) => existsSync(candidate));
+  const found = candidates.find((candidate) => existsSync(candidate.filePath));
   if (!found) {
-    throw new Error(`No se encontro la migracion feature ${migrationName} en: ${candidates.join(', ')}`);
+    throw new Error(
+      `No se encontro la migracion feature ${migrationName} en: ${candidates.map((candidate) => candidate.filePath).join(', ')}`,
+    );
   }
 
-  return found;
+  if (found.mode === 'canonical') {
+    return extractUpSql(found.filePath);
+  }
+
+  return readFileSync(found.filePath, 'utf8');
 }
 
 function applySupplementalFeatureMigrations(databaseUrl) {
@@ -460,9 +517,8 @@ function applySupplementalFeatureMigrations(databaseUrl) {
         assertSupplementalMigrationShape(databaseUrl, migration);
         console.log(`[migrate] feature omitida: ${migration.name} (forma existente)`);
       } catch (error) {
-        const filePath = resolvePrismaMigrationFile(migration.name);
         console.log(`[migrate] feature ${migration.name}`);
-        applySql(databaseUrl, readFileSync(filePath, 'utf8'));
+        applySql(databaseUrl, resolveSupplementalMigrationSql(migration.name));
         assertSupplementalMigrationShape(databaseUrl, migration);
       }
       continue;
@@ -488,9 +544,8 @@ function applySupplementalFeatureMigrations(databaseUrl) {
       `No se puede aplicar ${migration.name} sobre un esquema parcial`,
     );
 
-    const filePath = resolvePrismaMigrationFile(migration.name);
     console.log(`[migrate] feature ${migration.name}`);
-    applySql(databaseUrl, readFileSync(filePath, 'utf8'));
+    applySql(databaseUrl, resolveSupplementalMigrationSql(migration.name));
     assertSupplementalMigrationShape(databaseUrl, migration);
   }
 

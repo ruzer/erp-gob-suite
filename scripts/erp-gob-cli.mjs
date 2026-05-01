@@ -358,7 +358,7 @@ function unique(values) {
 
 function resolveKeycloakPublicUrl(env) {
   const configured = normalizeOrigin(env.KEYCLOAK_PUBLIC_URL);
-  if (configured && !isLocalPublicUrl(configured)) {
+  if (configured) {
     return configured.replace(/\/+$/, '');
   }
 
@@ -373,6 +373,18 @@ function buildCurlResolveArgs(url) {
 
   const port = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
   return ['--resolve', `${parsed.hostname}:${port}:127.0.0.1`];
+}
+
+function isLocalhostUrl(value) {
+  const origin = normalizeOrigin(value);
+  if (!origin) return false;
+
+  try {
+    const parsed = new URL(origin);
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
 }
 
 function captureHttp(url, { method = 'GET', headers = {}, body, includeHeaders = false } = {}) {
@@ -721,6 +733,28 @@ async function syncKeycloakApiClient(env) {
 }
 
 async function syncKeycloakClients(env) {
+  if (isLocalhostUrl(resolveKeycloakPublicUrl(env))) {
+    const username = env.KEYCLOAK_ADMIN || 'admin';
+    const password = env.KEYCLOAK_ADMIN_PASSWORD;
+    if (!password) {
+      die('Falta KEYCLOAK_ADMIN_PASSWORD para reconciliar Keycloak local.');
+    }
+
+    run('docker', [
+      'compose', 'exec', '-T', 'keycloak',
+      '/opt/keycloak/bin/kcadm.sh', 'config', 'credentials',
+      '--server', 'http://localhost:8080',
+      '--realm', 'master',
+      '--user', username,
+      '--password', password,
+    ]);
+    run('docker', [
+      'compose', 'exec', '-T', 'keycloak',
+      '/opt/keycloak/bin/kcadm.sh', 'update', 'realms/master',
+      '-s', 'sslRequired=none',
+    ]);
+  }
+
   await syncKeycloakRealm(env);
   await syncKeycloakFrontendClient(env);
   await syncKeycloakApiClient(env);
@@ -773,28 +807,20 @@ function loadCurrentEnv() {
 }
 
 function reconcilePublicSurfaceEnv(env, options = {}) {
-  const tenantKey = normalizeTenantKey(options['tenant-key'] || env.ERP_TENANT_KEY || 'demo');
   const baseDomain = options['base-domain'] || 'erp.gob.local';
-  const appHost = `${tenantKey}.${baseDomain}`;
 
   const nextEnv = { ...env };
 
   if (options['app-url']) {
     nextEnv.APP_URL = options['app-url'];
-  } else if (isLocalPublicUrl(env.APP_URL)) {
-    nextEnv.APP_URL = `https://${appHost}`;
   }
 
   if (options['api-url']) {
     nextEnv.API_URL = options['api-url'];
-  } else if (isLocalPublicUrl(env.API_URL)) {
-    nextEnv.API_URL = `https://api.${baseDomain}`;
   }
 
   if (options['keycloak-public-url']) {
     nextEnv.KEYCLOAK_PUBLIC_URL = options['keycloak-public-url'];
-  } else if (isLocalPublicUrl(env.KEYCLOAK_PUBLIC_URL)) {
-    nextEnv.KEYCLOAK_PUBLIC_URL = `https://auth.${baseDomain}`;
   }
 
   if (options['allowed-origins']) {
@@ -814,7 +840,7 @@ function reconcilePublicSurfaceEnv(env, options = {}) {
           return true;
         }
       });
-    if (hasOnlyLocalOrigins) {
+    if (hasOnlyLocalOrigins && !isLocalPublicUrl(nextEnv.APP_URL)) {
       nextEnv.APP_ALLOWED_ORIGINS = `${nextEnv.APP_URL},https://${baseDomain}`;
     }
   }
@@ -844,8 +870,9 @@ function validateInstalledStack(env) {
       die(`Servicio no encontrado en docker compose ps: ${service}`);
     }
   });
+  const apiOrigin = normalizeOrigin(env.API_URL);
   waitForUrl(`${env.APP_URL}/login`, 200, 30);
-  waitForUrl(`https://${extractHost(env.API_URL)}/`, 404, 5);
+  waitForUrl(`${apiOrigin || `https://${extractHost(env.API_URL)}`}/`, 404, 5);
   waitForUrl(`${resolveKeycloakPublicUrl(env)}/realms/${env.KEYCLOAK_REALM || 'erp'}/.well-known/openid-configuration`, 200, 30);
 
   const keycloakPublicUrl = resolveKeycloakPublicUrl(env);
