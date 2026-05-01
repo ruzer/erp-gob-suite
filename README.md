@@ -26,6 +26,8 @@ erp-gob install demo
 erp-gob validate
 erp-gob smoke
 erp-gob smoke-patrimonial
+erp-gob smoke-admin-personas
+erp-gob smoke-mantenimiento
 erp-gob upgrade
 erp-gob version
 ```
@@ -43,6 +45,15 @@ erp-gob smoke-patrimonial
 ```
 
 Valida compra multi-area patrimonial serializada: crea el caso minimo, confirma recepcion por API, verifica dos bienes creados y comprueba que `GET /activos/{id}/historial` conserva area/necesidad/proveedor de origen.
+
+Smokes funcionales administrativos:
+
+```bash
+erp-gob smoke-admin-personas
+erp-gob smoke-mantenimiento
+```
+
+`smoke-admin-personas` valida alta, consulta y edicion de Personas. `smoke-mantenimiento` valida mantenimiento correctivo, orden de trabajo, autorizacion, inicio, recepcion, cierre y lectura de indicadores de vehiculos/inmuebles.
 
 ## Requirements
 
