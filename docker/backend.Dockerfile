@@ -30,6 +30,7 @@ COPY --from=build /usr/src/app/dist ./dist
 COPY --from=build /usr/src/app/prisma ./prisma
 COPY --from=build /usr/src/app/seed-dist ./seed-dist
 COPY backend/docs /workspace/docs
+COPY backend/docs /workspace/backend/docs
 COPY scripts /workspace/scripts
 RUN addgroup --system app && adduser --system --ingroup app app
 USER app
