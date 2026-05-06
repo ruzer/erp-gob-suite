@@ -3,4 +3,4 @@
 	url = https://github.com/ruzer/erp-gob-abastecimiento.git
 [submodule "frontend"]
 	path = frontend
-	url = https://github.com/ruzer/erp-gob-frontend.git
+	url = https://gitea.fgeo.gob.mx/CSIE/erp-gob-frontend.git
